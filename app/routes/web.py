@@ -18,12 +18,7 @@ except (ImportError, ModuleNotFoundError):
 router = APIRouter(include_in_schema=False)
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-templates_dir = os.path.join(os.path.dirname(current_dir), "app", "templates")
-if not os.path.exists(templates_dir):
-    templates_dir = os.path.join(os.path.dirname(current_dir), "templates")
-if not os.path.exists(templates_dir):
-    templates_dir = "app/templates"
-
+templates_dir = os.path.abspath(os.path.join(current_dir, "..", "templates"))
 templates = Jinja2Templates(directory=templates_dir)
 
 # ==================== UNIVERSAL USER SESSION AUTH ====================
