@@ -1,6 +1,7 @@
 import os
 import sys
 
+# Tự động nạp thư viện từ môi trường ảo .venv
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
@@ -24,19 +25,9 @@ app = FastAPI(
     version="2.0.0"
 )
 
-@app.middleware("http")
-async def header_diagnostic_middleware(request: Request, call_next):
-    headers_dict = dict(request.headers)
-    response = await call_next(request)
-    response.headers["x-debug-matched-path"] = headers_dict.get("x-matched-path", "NONE")
-    response.headers["x-debug-invoke-path"] = headers_dict.get("x-invoke-path", "NONE")
-    response.headers["x-debug-forwarded-uri"] = headers_dict.get("x-forwarded-uri", "NONE")
-    response.headers["x-debug-vercel-sc-path"] = headers_dict.get("x-vercel-sc-path", "NONE")
-    return response
-
 init_db_if_needed()
 
-# Static Files Directory
+# Static Files Directory (Mounting on both /static and /api/static)
 static_dir = os.path.join(current_dir, "static")
 uploads_dir = os.path.join(static_dir, "uploads")
 try:
@@ -46,10 +37,13 @@ except OSError:
 
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    app.mount("/api/static", StaticFiles(directory=static_dir), name="static_api")
 
-# Mount Routers
-app.include_router(api.router)
+# Mount Routers on root and /api prefix
 app.include_router(web.router)
+app.include_router(api.router)
+app.include_router(web.router, prefix="/api")
+app.include_router(api.router, prefix="/api")
 
 if __name__ == "__main__":
     import uvicorn
