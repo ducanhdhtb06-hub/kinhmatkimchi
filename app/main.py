@@ -1,6 +1,7 @@
 import os
 import sys
 
+# Tự động nạp thư viện từ môi trường ảo .venv
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
@@ -8,7 +9,7 @@ if project_root not in sys.path:
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 try:
@@ -21,7 +22,8 @@ except (ImportError, ModuleNotFoundError):
 app = FastAPI(
     title="Kính Mắt Kim Chi - Eyewear E-commerce & Computer Vision",
     description="Nền tảng thương mại điện tử kính mắt thông minh tích hợp AR Virtual Try-On",
-    version="2.0.0"
+    version="2.0.0",
+    redirect_slashes=False
 )
 
 init_db_if_needed()
@@ -36,14 +38,10 @@ except OSError:
 
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
-    app.mount("/api/index/static", StaticFiles(directory=static_dir), name="static_alias1")
-    app.mount("/api/index.py/static", StaticFiles(directory=static_dir), name="static_alias2")
-    app.mount("/api/static", StaticFiles(directory=static_dir), name="static_alias3")
 
-# Mount Routers on all potential prefixes
-for pfx in ["", "/api/index", "/api/index.py", "/api"]:
-    app.include_router(web.router, prefix=pfx)
-    app.include_router(api.router, prefix=pfx)
+# Mount Routers
+app.include_router(api.router)
+app.include_router(web.router)
 
 if __name__ == "__main__":
     import uvicorn
