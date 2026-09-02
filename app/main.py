@@ -30,18 +30,35 @@ app = FastAPI(
 # Khởi tạo DB khi khởi động module
 init_db_if_needed()
 
-# HTTP Middleware để tự động chuẩn hóa đường dẫn Serverless Vercel
+# HTTP Middleware để khôi phục đúng đường dẫn thực tế khi Vercel rewrite
 @app.middleware("http")
 async def normalize_vercel_path(request: Request, call_next):
-    path = request.scope.get("path", "/")
-    for prefix in ["/api/index.py", "/api/index"]:
-        if path.startswith(prefix):
-            new_path = path[len(prefix):]
-            if not new_path.startswith("/"):
-                new_path = "/" + new_path
-            request.scope["path"] = new_path
-            request.scope["raw_path"] = new_path.encode("utf-8")
-            break
+    # Vercel luôn gửi URL thực tế của người dùng qua header x-matched-path
+    matched_path = request.headers.get("x-matched-path")
+    if matched_path:
+        orig_path = matched_path.split("?")[0]
+        # Bỏ prefix nếu có
+        for prefix in ["/api/index.py", "/api/index"]:
+            if orig_path.startswith(prefix + "/"):
+                orig_path = orig_path[len(prefix):]
+            elif orig_path == prefix:
+                orig_path = "/"
+        request.scope["path"] = orig_path
+        request.scope["raw_path"] = orig_path.encode("utf-8")
+    else:
+        path = request.scope.get("path", "/")
+        for prefix in ["/api/index.py", "/api/index"]:
+            if path == prefix:
+                request.scope["path"] = "/"
+                request.scope["raw_path"] = b"/"
+                break
+            elif path.startswith(prefix + "/"):
+                new_path = path[len(prefix):]
+                if not new_path.startswith("/"):
+                    new_path = "/" + new_path
+                request.scope["path"] = new_path
+                request.scope["raw_path"] = new_path.encode("utf-8")
+                break
     return await call_next(request)
 
 # Static Files Directory
@@ -59,19 +76,6 @@ if os.path.exists(static_dir):
 app.include_router(api.router)
 app.include_router(web.router)
 
-# Direct fallback aliases for Vercel root
-@app.get("/api/index.py")
-def vercel_root_alias1(request: Request, db: Session = Depends(get_db)):
-    return web.page_homepage(request, db)
-
-@app.get("/api/index")
-def vercel_root_alias2(request: Request, db: Session = Depends(get_db)):
-    return web.page_homepage(request, db)
-
 if __name__ == "__main__":
     import uvicorn
-    print("=" * 70)
-    print("🚀 Đang khởi động máy chủ Kính Mắt Kim Chi")
-    print("👉 Mở trình duyệt và truy cập: http://localhost:8000")
-    print("=" * 70)
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
