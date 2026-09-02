@@ -24,26 +24,15 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# Chuẩn hóa đường dẫn Serverless Vercel ở tầng ASGI Middleware
-class VercelPathMiddleware:
-    def __init__(self, app):
-        self.app = app
-
-    async def __call__(self, scope, receive, send):
-        if scope["type"] == "http":
-            headers_list = scope.get("headers", [])
-            headers_str = "; ".join([f"{k.decode('latin1')}={v.decode('latin1')}" for k, v in headers_list])
-            
-            async def custom_send(event):
-                if event["type"] == "http.response.start":
-                    event["headers"].append([b"x-debug-all-headers", headers_str.encode("latin1")])
-                await send(event)
-                
-            await self.app(scope, receive, custom_send)
-        else:
-            await self.app(scope, receive, send)
-
-app.add_middleware(VercelPathMiddleware)
+@app.middleware("http")
+async def header_diagnostic_middleware(request: Request, call_next):
+    headers_dict = dict(request.headers)
+    response = await call_next(request)
+    response.headers["x-debug-matched-path"] = headers_dict.get("x-matched-path", "NONE")
+    response.headers["x-debug-invoke-path"] = headers_dict.get("x-invoke-path", "NONE")
+    response.headers["x-debug-forwarded-uri"] = headers_dict.get("x-forwarded-uri", "NONE")
+    response.headers["x-debug-vercel-sc-path"] = headers_dict.get("x-vercel-sc-path", "NONE")
+    return response
 
 init_db_if_needed()
 
