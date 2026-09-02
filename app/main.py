@@ -27,35 +27,6 @@ app = FastAPI(
 
 init_db_if_needed()
 
-# HTTP Middleware để điều hướng chính xác 100% mọi trang trên Vercel
-@app.middleware("http")
-async def normalize_vercel_path(request: Request, call_next):
-    # Ưu tiên 1: Đọc tham số 'path' được truyền từ Vercel rewrite (?path=/...)
-    path_param = request.query_params.get("path")
-    if path_param:
-        clean_path = path_param.split("?")[0]
-        if not clean_path.startswith("/"):
-            clean_path = "/" + clean_path
-        # Clean double slashes if any
-        while "//" in clean_path:
-            clean_path = clean_path.replace("//", "/")
-        request.scope["path"] = clean_path
-        request.scope["raw_path"] = clean_path.encode("utf-8")
-    else:
-        # Ưu tiên 2: Đọc header x-matched-path
-        matched_path = request.headers.get("x-matched-path")
-        if matched_path:
-            clean_path = matched_path.split("?")[0]
-            for prefix in ["/api/index.py", "/api/index"]:
-                if clean_path.startswith(prefix + "/"):
-                    clean_path = clean_path[len(prefix):]
-                elif clean_path == prefix:
-                    clean_path = "/"
-            request.scope["path"] = clean_path
-            request.scope["raw_path"] = clean_path.encode("utf-8")
-
-    return await call_next(request)
-
 # Static Files Directory
 static_dir = os.path.join(current_dir, "static")
 uploads_dir = os.path.join(static_dir, "uploads")
