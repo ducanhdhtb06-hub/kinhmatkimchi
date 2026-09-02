@@ -73,11 +73,14 @@
 
             <div class="relative bg-slate-950 rounded-3xl border-2 border-slate-800 overflow-hidden shadow-2xl aspect-[4/3] flex items-center justify-center">
                 
-                <!-- Hidden Video Source -->
-                <video id="webcamVideo" playsinline webkit-playsinline autoplay muted style="position: absolute; opacity: 0; pointer-events: none; z-index: -1; width: 640px; height: 480px;"></video>
+                <!-- Background Layer 1: Hardware-accelerated Video Stream -->
+                <video id="webcamVideo" x-show="isCameraActive" class="w-full h-full object-cover transition-transform duration-150" :class="isMirrored ? 'scale-x-[-1]' : ''" playsinline webkit-playsinline autoplay muted></video>
 
-                <!-- Render Canvas for Face Mesh & Glasses Overlay -->
-                <canvas id="outputCanvas" class="w-full h-full object-contain bg-slate-950 cursor-grab active:cursor-grabbing"></canvas>
+                <!-- Background Layer 2: Model Image / Uploaded Portrait -->
+                <img id="staticModelImg" x-show="!isCameraActive && (activeModelIndex !== -1 || isImageLoaded)" :src="currentModelImgSrc" class="w-full h-full object-contain bg-slate-950">
+
+                <!-- Foreground Layer 3: Glasses & HUD Overlay Canvas -->
+                <canvas id="outputCanvas" x-show="isCameraActive || activeModelIndex !== -1 || isImageLoaded" class="absolute inset-0 w-full h-full object-contain pointer-events-auto cursor-grab active:cursor-grabbing"></canvas>
 
                 <!-- Idle State Placeholder when no camera & no image -->
                 <div x-show="!isCameraActive && activeModelIndex === -1 && !isImageLoaded" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-900/90 backdrop-blur-sm space-y-4">
@@ -342,10 +345,12 @@
             engine: null,
             isCameraActive: false,
             isImageLoaded: false,
+            isMirrored: true,
+            currentModelImgSrc: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80',
             showLandmarks: false,
             showCalibrationGuide: true,
             statusBadge: 'Chưa bật camera',
-            activeModelIndex: -1,
+            activeModelIndex: 0,
             snapshots: [],
             showCompareModal: false,
             
@@ -556,6 +561,7 @@
 
                 this.stopCamera();
                 this.statusBadge = model.name;
+                this.currentModelImgSrc = model.url;
 
                 const img = new Image();
                 img.crossOrigin = "anonymous";
@@ -569,9 +575,10 @@
                 try {
                     this.activeModelIndex = -1;
                     this.isImageLoaded = false;
-                    await this.engine.startCamera();
                     this.isCameraActive = true;
+                    await this.engine.startCamera();
                 } catch (e) {
+                    this.isCameraActive = false;
                     Swal.fire({
                         icon: 'info',
                         title: 'Truy Cập Camera',
@@ -606,8 +613,10 @@
             },
 
             toggleMirror() {
+                this.isMirrored = !this.isMirrored;
                 if (this.engine) {
-                    this.engine.options.isMirrored = !this.engine.options.isMirrored;
+                    this.engine.options.isMirrored = this.isMirrored;
+                    this.engine.renderFrame();
                 }
             },
 

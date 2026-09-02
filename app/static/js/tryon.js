@@ -1,14 +1,13 @@
 /**
- * OptiStyle Pro - 60 FPS Universal AR Virtual Try-On Engine (Ultra-Stable Edition)
- * Self-contained zero-dependency Computer Vision Engine with Real-Time Video Face Anchor,
- * Optical Metric Distance Normalization, Interactive Touch Drag & Precision Lens Fitting.
+ * OptiStyle Pro - 60 FPS Dual-Layer Hardware-Accelerated AR Virtual Try-On Engine
+ * Native Browser Video Streaming + Canvas Overlay + Multi-Touch Drag & Optical Calibrator
  */
 
 class OptiTryOnEngine {
     constructor(videoElement, canvasElement, options = {}) {
         this.video = videoElement;
         this.canvas = canvasElement;
-        this.ctx = canvasElement.getContext('2d', { willReadFrequently: true });
+        this.ctx = canvasElement.getContext('2d');
 
         this.options = {
             glassesOverlayUrl: options.glassesOverlayUrl || '/static/img/frames/square_black.svg',
@@ -44,7 +43,6 @@ class OptiTryOnEngine {
         // Active Face Position State (Interpolated)
         this.targetBox = null;
         this.currentBox = null;
-        this.currentLandmarks = [];
         this.hasValidFace = false;
         this.animationFrameId = null;
         
@@ -71,9 +69,7 @@ class OptiTryOnEngine {
         this.glassesImage.crossOrigin = "anonymous";
         this.glassesImage.onload = () => {
             this.isGlassesLoaded = true;
-            if (this.currentSource === 'image' && this.staticImage) {
-                this.renderStaticFrame();
-            }
+            this.renderFrame();
         };
         this.glassesImage.src = url;
     }
@@ -91,10 +87,10 @@ class OptiTryOnEngine {
         };
 
         const onStart = (e) => {
-            if (!this.hasValidFace || !this.targetBox) return;
+            if (!this.hasValidFace) return;
             const pt = getCanvasCoords(e);
             this.isDragging = true;
-            this.dragStartX = pt.x - (this.options.isMirrored && this.currentSource === 'camera' ? (this.canvas.width - this.manualOffsetX) : this.manualOffsetX);
+            this.dragStartX = pt.x - (this.options.isMirrored && this.currentSource === 'camera' ? -this.manualOffsetX : this.manualOffsetX);
             this.dragStartY = pt.y - this.manualOffsetY;
         };
 
@@ -104,10 +100,7 @@ class OptiTryOnEngine {
             const deltaX = pt.x - this.dragStartX;
             this.manualOffsetX = this.options.isMirrored && this.currentSource === 'camera' ? -deltaX : deltaX;
             this.manualOffsetY = pt.y - this.dragStartY;
-            
-            if (this.currentSource === 'image') {
-                this.renderStaticFrame();
-            }
+            this.renderFrame();
         };
 
         const onEnd = () => {
@@ -131,7 +124,6 @@ class OptiTryOnEngine {
         try {
             this.notifyStatus('Đang mở camera...', 'loading');
 
-            // Set video attributes for iOS Safari & Android Chrome autoplay
             this.video.setAttribute('playsinline', 'true');
             this.video.setAttribute('webkit-playsinline', 'true');
             this.video.muted = true;
@@ -148,7 +140,6 @@ class OptiTryOnEngine {
             try {
                 this.stream = await navigator.mediaDevices.getUserMedia(constraints);
             } catch (err1) {
-                // Fallback to basic video constraint if facingMode is not supported
                 this.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             }
 
@@ -172,14 +163,13 @@ class OptiTryOnEngine {
             this.currentSource = 'camera';
             this.notifyStatus('Camera trực tiếp (60 FPS)', 'active');
             
-            // Set initial centered anchor immediately so glasses appear with 0ms delay
             const w = this.canvas.width;
             const h = this.canvas.height;
             this.targetBox = {
                 center_x: w * 0.5,
-                center_y: h * 0.42,
-                width: w * 0.48 * this.manualScale,
-                height: (w * 0.48 * this.manualScale) / 2.85,
+                center_y: h * 0.40,
+                width: w * 0.48,
+                height: (w * 0.48) / 2.85,
                 angle: 0
             };
             this.hasValidFace = true;
@@ -198,9 +188,7 @@ class OptiTryOnEngine {
                 });
             }
 
-            // Continuous 60 FPS Render Loop
             this.renderLiveCameraLoop();
-
             return true;
         } catch (err) {
             this.notifyStatus('Chưa cấp quyền camera', 'error');
@@ -208,31 +196,23 @@ class OptiTryOnEngine {
         }
     }
 
-    // Continuous 60 FPS Render Loop
     renderLiveCameraLoop() {
         if (!this.isRunning || this.currentSource !== 'camera') return;
 
+        this.renderOverlay();
+        this.animationFrameId = requestAnimationFrame(() => this.renderLiveCameraLoop());
+    }
+
+    // Render Canvas Overlay on top of Video or Image
+    renderOverlay() {
         const width = this.canvas.width;
         const height = this.canvas.height;
 
-        this.ctx.save();
         this.ctx.clearRect(0, 0, width, height);
 
-        // 1. Mirror video stream for natural selfie experience
-        if (this.options.isMirrored) {
-            this.ctx.translate(width, 0);
-            this.ctx.scale(-1, 1);
-        }
-
-        // 2. Draw live video feed
-        if (this.video.readyState >= 2) {
-            this.ctx.drawImage(this.video, 0, 0, width, height);
-        }
-
-        // 3. Smooth Box Interpolation & Render Glasses
-        if (this.hasValidFace) {
+        if (this.hasValidFace && this.targetBox) {
             const defaultCx = width * 0.5 + this.manualOffsetX;
-            const defaultCy = height * 0.42 + this.manualOffsetY;
+            const defaultCy = height * 0.40 + this.manualOffsetY;
             const defaultW = width * 0.48 * this.manualScale;
             const defaultH = defaultW / 2.85;
 
@@ -281,17 +261,12 @@ class OptiTryOnEngine {
             }
         }
 
-        this.ctx.restore();
-
-        // 4. Draw Interactive Calibration Oval
+        // Draw Interactive Calibration Oval
         if (this.options.showCalibrationGuide) {
             this.drawCalibrationOval(width, height);
         }
-
-        this.animationFrameId = requestAnimationFrame(() => this.renderLiveCameraLoop());
     }
 
-    // Draw Optical Calibration Target Oval Guide (50-60cm Guide)
     drawCalibrationOval(width, height) {
         const centerX = width / 2;
         const centerY = height * 0.44;
@@ -300,28 +275,23 @@ class OptiTryOnEngine {
 
         this.ctx.save();
         this.ctx.lineWidth = 2.5;
-
-        let strokeColor = "rgba(16, 185, 129, 0.9)"; // Emerald Green
-        let label = `✅ Khoảng cách chuẩn: 55 cm (Đang đo chính xác)`;
-
-        this.ctx.strokeStyle = strokeColor;
+        this.ctx.strokeStyle = "rgba(16, 185, 129, 0.9)";
         this.ctx.setLineDash([8, 6]);
 
         this.ctx.beginPath();
         this.ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
         this.ctx.stroke();
 
-        // Guide text banner
         this.ctx.setLineDash([]);
         this.ctx.fillStyle = "rgba(9, 13, 22, 0.88)";
         this.ctx.fillRect(centerX - 170, centerY + radiusY + 12, 340, 26);
-        this.ctx.strokeStyle = strokeColor;
+        this.ctx.strokeStyle = "rgba(16, 185, 129, 0.9)";
         this.ctx.strokeRect(centerX - 170, centerY + radiusY + 12, 340, 26);
 
         this.ctx.fillStyle = "#ffffff";
         this.ctx.font = "bold 11px 'Be Vietnam Pro', sans-serif";
         this.ctx.textAlign = "center";
-        this.ctx.fillText(label, centerX, centerY + radiusY + 29);
+        this.ctx.fillText("✅ Khoảng cách chuẩn: 55 cm (Đang đo chính xác)", centerX, centerY + radiusY + 29);
 
         this.ctx.restore();
     }
@@ -348,7 +318,7 @@ class OptiTryOnEngine {
         this.notifyStatus('Camera đã tắt', 'idle');
     }
 
-    // Static Image Processing (Sample Models & Uploaded Photos)
+    // Static Image Processing (Models & Uploads)
     async processStaticImage(imgElement, presetData = null) {
         this.stopCamera();
         this.staticImage = imgElement;
@@ -406,46 +376,22 @@ class OptiTryOnEngine {
             });
         }
 
-        this.renderStaticFrame();
+        this.renderFrame();
     }
 
-    renderStaticFrame() {
-        if (this.currentSource !== 'image' || !this.staticImage) return;
-
-        const width = this.canvas.width;
-        const height = this.canvas.height;
-
-        this.ctx.save();
-        this.ctx.clearRect(0, 0, width, height);
-        this.ctx.drawImage(this.staticImage, 0, 0, width, height);
-
-        if (this.hasValidFace && this.targetBox && this.isGlassesLoaded) {
-            const box = this.targetBox;
-            this.ctx.save();
-            this.ctx.translate(box.center_x + this.manualOffsetX, box.center_y + this.manualOffsetY);
-            this.ctx.rotate((box.angle || 0) + this.manualAngle);
-            this.ctx.drawImage(
-                this.glassesImage,
-                -(box.width * this.manualScale) / 2,
-                -(box.height * this.manualScale) / 2,
-                box.width * this.manualScale,
-                box.height * this.manualScale
-            );
-            this.ctx.restore();
+    renderFrame() {
+        if (this.currentSource === 'camera') {
+            this.renderOverlay();
+        } else if (this.currentSource === 'image') {
+            this.renderOverlay();
         }
-
-        this.ctx.restore();
     }
 
-    // Adjust Scale, Offset & Tilt
     setAdjustments(scaleDelta, offsetYDelta, angleDelta = 0) {
         this.manualScale = Math.max(0.5, Math.min(1.8, this.manualScale + scaleDelta));
         this.manualOffsetY += offsetYDelta;
         this.manualAngle += angleDelta;
-        
-        if (this.currentSource === 'image') {
-            this.renderStaticFrame();
-        }
+        this.renderFrame();
     }
 
     resetAdjustments() {
@@ -453,17 +399,36 @@ class OptiTryOnEngine {
         this.manualOffsetY = 0;
         this.manualOffsetX = 0;
         this.manualAngle = 0;
-        if (this.currentSource === 'image') {
-            this.renderStaticFrame();
-        }
+        this.renderFrame();
     }
 
-    // Capture High-Resolution Snapshot
+    // Capture High-Resolution Snapshot with background and glasses
     takeSnapshot() {
         try {
+            const offscreen = document.createElement('canvas');
+            offscreen.width = this.canvas.width;
+            offscreen.height = this.canvas.height;
+            const offCtx = offscreen.getContext('2d');
+
+            if (this.currentSource === 'camera' && this.video.readyState >= 2) {
+                if (this.options.isMirrored) {
+                    offCtx.translate(offscreen.width, 0);
+                    offCtx.scale(-1, 1);
+                }
+                offCtx.drawImage(this.video, 0, 0, offscreen.width, offscreen.height);
+                if (this.options.isMirrored) {
+                    offCtx.setTransform(1, 0, 0, 1, 0, 0);
+                }
+            } else if (this.currentSource === 'image' && this.staticImage) {
+                offCtx.drawImage(this.staticImage, 0, 0, offscreen.width, offscreen.height);
+            }
+
+            // Draw glasses overlay onto snapshot
+            offCtx.drawImage(this.canvas, 0, 0);
+
             const link = document.createElement('a');
             link.download = `optistyle_tryon_${Date.now()}.png`;
-            link.href = this.canvas.toDataURL('image/png');
+            link.href = offscreen.toDataURL('image/png');
             link.click();
         } catch (e) {
             console.error("Snapshot error:", e);
