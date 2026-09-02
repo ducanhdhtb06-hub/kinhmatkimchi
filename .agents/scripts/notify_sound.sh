@@ -1,10 +1,24 @@
 #!/bin/bash
-# Đọc stdin JSON từ Antigravity Hook Engine
+# Đọc stdin từ Antigravity Hook Engine
 INPUT=$(cat)
 
-# Phát tiếng chuông Bell (\a / ASCII 0x07) báo hiệu hoàn thành
-printf '\a' > /dev/tty 2>/dev/null || true
-printf '\a' >&2 || true
+# Phát chuỗi 3 tiếng chuông nhịp điệu (Beep-Beep!)
+python3 -c "
+import time, sys, glob
 
-# Xuất kết quả JSON hợp lệ theo chuẩn Antigravity Stop Hook
+for i in range(2):
+    # Phát ra terminal hiện tại và mọi pts đang mở
+    for pts in glob.glob('/dev/pts/*') + ['/dev/tty']:
+        try:
+            with open(pts, 'w') as f:
+                f.write('\a')
+                f.flush()
+        except Exception:
+            pass
+    sys.stderr.write('\a')
+    sys.stderr.flush()
+    time.sleep(0.15)
+" 2>/dev/null || true
+
+# Trả về kết quả JSON chuẩn Stop Hook
 echo '{"decision": "allow"}'
