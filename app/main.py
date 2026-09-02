@@ -9,56 +9,51 @@ if project_root not in sys.path:
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import Session
 
 try:
-    from app.database import engine, Base, init_db_if_needed, get_db
+    from app.database import engine, Base, init_db_if_needed
     from app.routes import api, web
 except (ImportError, ModuleNotFoundError):
-    from database import engine, Base, init_db_if_needed, get_db
+    from database import engine, Base, init_db_if_needed
     from routes import api, web
 
-# Tạo instance FastAPI chuẩn cho Vercel ASGI Handler
 app = FastAPI(
     title="Kính Mắt Kim Chi - Eyewear E-commerce & Computer Vision",
     description="Nền tảng thương mại điện tử kính mắt thông minh tích hợp AR Virtual Try-On",
     version="2.0.0"
 )
 
-# Khởi tạo DB khi khởi động module
 init_db_if_needed()
 
-# HTTP Middleware để khôi phục đúng đường dẫn thực tế khi Vercel rewrite
+# HTTP Middleware để điều hướng chính xác 100% mọi trang trên Vercel
 @app.middleware("http")
 async def normalize_vercel_path(request: Request, call_next):
-    # Vercel luôn gửi URL thực tế của người dùng qua header x-matched-path
-    matched_path = request.headers.get("x-matched-path")
-    if matched_path:
-        orig_path = matched_path.split("?")[0]
-        # Bỏ prefix nếu có
-        for prefix in ["/api/index.py", "/api/index"]:
-            if orig_path.startswith(prefix + "/"):
-                orig_path = orig_path[len(prefix):]
-            elif orig_path == prefix:
-                orig_path = "/"
-        request.scope["path"] = orig_path
-        request.scope["raw_path"] = orig_path.encode("utf-8")
+    # Ưu tiên 1: Đọc tham số 'path' được truyền từ Vercel rewrite (?path=/...)
+    path_param = request.query_params.get("path")
+    if path_param:
+        clean_path = path_param.split("?")[0]
+        if not clean_path.startswith("/"):
+            clean_path = "/" + clean_path
+        # Clean double slashes if any
+        while "//" in clean_path:
+            clean_path = clean_path.replace("//", "/")
+        request.scope["path"] = clean_path
+        request.scope["raw_path"] = clean_path.encode("utf-8")
     else:
-        path = request.scope.get("path", "/")
-        for prefix in ["/api/index.py", "/api/index"]:
-            if path == prefix:
-                request.scope["path"] = "/"
-                request.scope["raw_path"] = b"/"
-                break
-            elif path.startswith(prefix + "/"):
-                new_path = path[len(prefix):]
-                if not new_path.startswith("/"):
-                    new_path = "/" + new_path
-                request.scope["path"] = new_path
-                request.scope["raw_path"] = new_path.encode("utf-8")
-                break
+        # Ưu tiên 2: Đọc header x-matched-path
+        matched_path = request.headers.get("x-matched-path")
+        if matched_path:
+            clean_path = matched_path.split("?")[0]
+            for prefix in ["/api/index.py", "/api/index"]:
+                if clean_path.startswith(prefix + "/"):
+                    clean_path = clean_path[len(prefix):]
+                elif clean_path == prefix:
+                    clean_path = "/"
+            request.scope["path"] = clean_path
+            request.scope["raw_path"] = clean_path.encode("utf-8")
+
     return await call_next(request)
 
 # Static Files Directory
