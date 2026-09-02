@@ -1,7 +1,6 @@
 import os
 import sys
 
-# Tự động nạp thư viện từ môi trường ảo .venv
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
@@ -27,7 +26,7 @@ app = FastAPI(
 
 init_db_if_needed()
 
-# Static Files Directory (Mounting on all potential Vercel prefixes)
+# Static Files Directory
 static_dir = os.path.join(current_dir, "static")
 uploads_dir = os.path.join(static_dir, "uploads")
 try:
@@ -37,11 +36,12 @@ except OSError:
 
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
-    app.mount("/api/index.py/static", StaticFiles(directory=static_dir), name="static_alias1")
-    app.mount("/api/index/static", StaticFiles(directory=static_dir), name="static_alias2")
+    app.mount("/api/index/static", StaticFiles(directory=static_dir), name="static_alias1")
+    app.mount("/api/index.py/static", StaticFiles(directory=static_dir), name="static_alias2")
+    app.mount("/api/static", StaticFiles(directory=static_dir), name="static_alias3")
 
-# Mount Routers across all potential Vercel Serverless path formats
-for pfx in ["", "/api/index.py", "/api/index"]:
+# Mount Routers on all potential prefixes
+for pfx in ["", "/api/index", "/api/index.py", "/api"]:
     app.include_router(web.router, prefix=pfx)
     app.include_router(api.router, prefix=pfx)
 
