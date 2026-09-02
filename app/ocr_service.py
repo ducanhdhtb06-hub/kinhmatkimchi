@@ -1,7 +1,10 @@
 import re
 import os
 import json
-import cv2
+try:
+    import cv2
+except Exception:
+    cv2 = None
 import numpy as np
 from typing import Dict, Any, Optional, Tuple, List
 

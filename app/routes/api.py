@@ -5,7 +5,11 @@ import base64
 import math
 import re
 import numpy as np
-import cv2
+try:
+    import cv2
+except Exception:
+    cv2 = None
+
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Request
@@ -20,9 +24,16 @@ except (ImportError, ModuleNotFoundError):
 
 router = APIRouter(prefix="/api", tags=["OptiStyle API"])
 
-# Initialize OpenCV Cascades
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+face_cascade = None
+eye_cascade = None
+
+if cv2 is not None:
+    try:
+        if hasattr(cv2, "data") and hasattr(cv2.data, "haarcascades") and cv2.data.haarcascades:
+            face_cascade = cv2.CascadeClassifier(os.path.join(cv2.data.haarcascades, 'haarcascade_frontalface_default.xml'))
+            eye_cascade = cv2.CascadeClassifier(os.path.join(cv2.data.haarcascades, 'haarcascade_eye.xml'))
+    except Exception:
+        pass
 
 class FrameTrackPayload(BaseModel):
     image_base64: str
