@@ -9,6 +9,7 @@ if project_root not in sys.path:
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
+from urllib.parse import parse_qs, urlencode, unquote
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
@@ -32,32 +33,41 @@ class VercelPathMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
-            headers = dict(scope.get("headers", []))
-            matched = (
-                headers.get(b"x-matched-path") or 
-                headers.get(b"x-vercel-matched-path") or 
-                headers.get(b"x-forwarded-uri")
-            )
-            if matched:
-                path = matched.decode("latin1").split("?")[0]
+            query_bytes = scope.get("query_string", b"")
+            qs = query_bytes.decode("latin1")
+            params = parse_qs(qs, keep_blank_values=True)
+            
+            if "p" in params:
+                p_val = unquote(params.pop("p")[0])
+                if not p_val or p_val == "/":
+                    clean_path = "/"
+                else:
+                    clean_path = p_val if p_val.startswith("/") else "/" + p_val
+                
+                while "//" in clean_path:
+                    clean_path = clean_path.replace("//", "/")
+                    
+                scope["path"] = clean_path
+                scope["raw_path"] = clean_path.encode("utf-8")
+                scope["query_string"] = urlencode(params, doseq=True).encode("latin1")
             else:
                 path = scope.get("path", "/")
+                for prefix in ["/api/index.py", "/api/index"]:
+                    if path.startswith(prefix + "/"):
+                        path = path[len(prefix):]
+                        break
+                    elif path == prefix:
+                        path = "/"
+                        break
 
-            for prefix in ["/api/index.py", "/api/index"]:
-                if path.startswith(prefix + "/"):
-                    path = path[len(prefix):]
-                    break
-                elif path == prefix:
-                    path = "/"
-                    break
+                if not path.startswith("/"):
+                    path = "/" + path
+                while "//" in path:
+                    path = path.replace("//", "/")
 
-            if not path.startswith("/"):
-                path = "/" + path
-            while "//" in path:
-                path = path.replace("//", "/")
+                scope["path"] = path
+                scope["raw_path"] = path.encode("utf-8")
 
-            scope["path"] = path
-            scope["raw_path"] = path.encode("utf-8")
         await self.app(scope, receive, send)
 
 app.add_middleware(VercelPathMiddleware)
