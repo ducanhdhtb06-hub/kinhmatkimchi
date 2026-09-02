@@ -1,6 +1,7 @@
 import os
 import sys
 
+# Tự động nạp thư viện từ môi trường ảo .venv
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
@@ -26,7 +27,7 @@ app = FastAPI(
 
 init_db_if_needed()
 
-# Static Files Directory
+# Static Files Directory (Mounting on all potential Vercel prefixes)
 static_dir = os.path.join(current_dir, "static")
 uploads_dir = os.path.join(static_dir, "uploads")
 try:
@@ -36,20 +37,13 @@ except OSError:
 
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    app.mount("/api/index.py/static", StaticFiles(directory=static_dir), name="static_alias1")
+    app.mount("/api/index/static", StaticFiles(directory=static_dir), name="static_alias2")
 
-# Mount Routers
-app.include_router(api.router)
-app.include_router(web.router)
-
-@app.get("/_inspect_route/{sub:path}")
-@app.get("/_inspect_route")
-def inspect_route(request: Request, sub: str = ""):
-    return {
-        "sub": sub,
-        "path": request.scope.get("path"),
-        "url": str(request.url),
-        "headers": dict(request.headers)
-    }
+# Mount Routers across all potential Vercel Serverless path formats
+for pfx in ["", "/api/index.py", "/api/index"]:
+    app.include_router(web.router, prefix=pfx)
+    app.include_router(api.router, prefix=pfx)
 
 if __name__ == "__main__":
     import uvicorn
