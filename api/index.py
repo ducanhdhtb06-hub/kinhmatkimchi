@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
@@ -9,32 +8,39 @@ if project_root not in sys.path:
 if os.path.join(project_root, "app") not in sys.path:
     sys.path.insert(0, os.path.join(project_root, "app"))
 
-from app.main import app as fastapi_app
+from app.main import app as _app
 
 async def app(scope, receive, send):
     if scope.get("type") == "http":
-        headers_dict = {k.decode('latin1'): v.decode('latin1') for k, v in scope.get("headers", [])}
+        headers = dict(scope.get("headers", []))
         
-        # Test endpoint to see exact Vercel scope & headers
-        if scope.get("path") == "/_debug_scope" or headers_dict.get("x-matched-path") == "/_debug_scope":
-            body = json.dumps({
-                "path": scope.get("path"),
-                "raw_path": scope.get("raw_path", b"").decode('latin1'),
-                "query_string": scope.get("query_string", b"").decode('latin1'),
-                "headers": headers_dict
-            }, indent=2).encode('utf-8')
-            
-            await send({
-                'type': 'http.response.start',
-                'status': 200,
-                'headers': [[b'content-type', b'application/json']]
-            })
-            await send({
-                'type': 'http.response.body',
-                'body': body
-            })
-            return
+        # Lấy URL ban đầu từ các header đặc trưng của Vercel
+        matched = (
+            headers.get(b"x-matched-path") or 
+            headers.get(b"x-vercel-matched-path") or 
+            headers.get(b"x-forwarded-uri") or
+            headers.get(b"x-invoke-path")
+        )
+        
+        if matched:
+            orig = matched.decode('latin1').split("?")[0]
+            # Loại bỏ prefix /api/index hoặc /api nếu có
+            for prefix in ["/api/index.py", "/api/index"]:
+                if orig.startswith(prefix + "/"):
+                    orig = orig[len(prefix):]
+                elif orig == prefix:
+                    orig = "/"
+            if not orig.startswith("/"):
+                orig = "/" + orig
+            scope["path"] = orig
+            scope["raw_path"] = orig.encode("utf-8")
+        else:
+            # Fallback nếu không có header
+            p = scope.get("path", "/")
+            if p in ["/api/index.py", "/api/index", "/api"]:
+                scope["path"] = "/"
+                scope["raw_path"] = b"/"
 
-    await fastapi_app(scope, receive, send)
+    await _app(scope, receive, send)
 
 handler = app
