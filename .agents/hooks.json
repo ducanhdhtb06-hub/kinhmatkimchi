@@ -1,0 +1,12 @@
+{
+  "done-sound-notification": {
+    "enabled": true,
+    "Stop": [
+      {
+        "type": "command",
+        "command": "./scripts/notify_sound.sh",
+        "timeout": 5
+      }
+    ]
+  }
+}
