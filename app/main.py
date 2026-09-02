@@ -9,14 +9,15 @@ if project_root not in sys.path:
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 
 try:
-    from app.database import engine, Base, init_db_if_needed
+    from app.database import engine, Base, init_db_if_needed, get_db
     from app.routes import api, web
 except (ImportError, ModuleNotFoundError):
-    from database import engine, Base, init_db_if_needed
+    from database import engine, Base, init_db_if_needed, get_db
     from routes import api, web
 
 app = FastAPI(
@@ -42,6 +43,12 @@ if os.path.exists(static_dir):
 # Mount Routers
 app.include_router(api.router)
 app.include_router(web.router)
+
+# Direct fallback handlers for Vercel Serverless entrypoints
+@app.get("/api/index.py")
+@app.get("/api/index")
+def home_alias_vercel(request: Request, db: Session = Depends(get_db)):
+    return web.page_homepage(request, db)
 
 if __name__ == "__main__":
     import uvicorn
