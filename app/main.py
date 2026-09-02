@@ -1,6 +1,5 @@
 import os
 import sys
-from contextlib import asynccontextmanager
 
 # Tự động nạp thư viện từ môi trường ảo .venv
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -10,46 +9,25 @@ if project_root not in sys.path:
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 try:
-    from app.database import engine, Base, SessionLocal
-    from app import seed
+    from app.database import engine, Base, init_db_if_needed
     from app.routes import api, web
 except (ImportError, ModuleNotFoundError):
-    from database import engine, Base, SessionLocal
-    import seed
+    from database import engine, Base, init_db_if_needed
     from routes import api, web
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # 1. Khởi tạo Database Tables (Categories, Frames, Lenses, Orders, OrderItems)
-    try:
-        Base.metadata.create_all(bind=engine)
-        db = SessionLocal()
-        try:
-            seed.seed_eyewear_data(db)
-        finally:
-            db.close()
-    except Exception as ex:
-        print(f"⚠️ DB Init Notice: {ex}")
-
-    # 2. Nạp trước mô hình OCR vào bộ nhớ RAM nếu khả dụng
-    try:
-        from app.ocr_service import _get_easyocr_reader
-        _get_easyocr_reader()
-    except Exception as ex:
-        print(f"⚠️ Preload OCR: {ex}")
-
-    yield
-
+# Tạo instance FastAPI chuẩn cho Vercel ASGI Handler
 app = FastAPI(
     title="Kính Mắt Kim Chi - Eyewear E-commerce & Computer Vision",
     description="Nền tảng thương mại điện tử kính mắt thông minh tích hợp AR Virtual Try-On",
-    version="2.0.0",
-    lifespan=lifespan
+    version="2.0.0"
 )
+
+# Khởi tạo DB khi khởi động module
+init_db_if_needed()
 
 # Static Files Directory
 static_dir = os.path.join(current_dir, "static")

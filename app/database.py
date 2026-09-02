@@ -26,7 +26,28 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+_initialized = False
+
+def init_db_if_needed():
+    global _initialized
+    if not _initialized:
+        try:
+            Base.metadata.create_all(bind=engine)
+            try:
+                from app import seed
+            except ImportError:
+                import seed
+            db = SessionLocal()
+            try:
+                seed.seed_eyewear_data(db)
+            finally:
+                db.close()
+            _initialized = True
+        except Exception as e:
+            print("DB init notice:", e)
+
 def get_db():
+    init_db_if_needed()
     db = SessionLocal()
     try:
         yield db
