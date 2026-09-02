@@ -1,7 +1,6 @@
 import os
 import sys
 
-# Tự động nạp thư viện từ môi trường ảo .venv
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
@@ -41,6 +40,16 @@ if os.path.exists(static_dir):
 # Mount Routers
 app.include_router(api.router)
 app.include_router(web.router)
+
+@app.get("/_inspect_route/{sub:path}")
+@app.get("/_inspect_route")
+def inspect_route(request: Request, sub: str = ""):
+    return {
+        "sub": sub,
+        "path": request.scope.get("path"),
+        "url": str(request.url),
+        "headers": dict(request.headers)
+    }
 
 if __name__ == "__main__":
     import uvicorn
