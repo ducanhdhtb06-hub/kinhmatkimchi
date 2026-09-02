@@ -32,7 +32,17 @@ class VercelPathMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
-            path = scope.get("path", "/")
+            headers = dict(scope.get("headers", []))
+            matched = (
+                headers.get(b"x-matched-path") or 
+                headers.get(b"x-vercel-matched-path") or 
+                headers.get(b"x-forwarded-uri")
+            )
+            if matched:
+                path = matched.decode("latin1").split("?")[0]
+            else:
+                path = scope.get("path", "/")
+
             for prefix in ["/api/index.py", "/api/index"]:
                 if path.startswith(prefix + "/"):
                     path = path[len(prefix):]
@@ -40,10 +50,12 @@ class VercelPathMiddleware:
                 elif path == prefix:
                     path = "/"
                     break
+
             if not path.startswith("/"):
                 path = "/" + path
             while "//" in path:
                 path = path.replace("//", "/")
+
             scope["path"] = path
             scope["raw_path"] = path.encode("utf-8")
         await self.app(scope, receive, send)
