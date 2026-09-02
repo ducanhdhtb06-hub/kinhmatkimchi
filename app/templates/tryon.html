@@ -111,14 +111,18 @@
                 </div>
 
                 <!-- Controls on top right -->
-                <div x-show="isCameraActive || activeModelIndex !== -1" class="absolute top-4 right-4 flex items-center gap-2">
+                <div x-show="isCameraActive || activeModelIndex !== -1 || isImageLoaded" class="absolute top-4 right-4 flex flex-wrap items-center gap-2">
+                    <div class="flex items-center gap-1 bg-slate-950/80 backdrop-blur rounded-full px-2 py-1 border border-slate-700 text-xs">
+                        <button @click="engine.setAdjustments(-0.05, 0)" class="w-5 h-5 rounded-full bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-[10px]" title="Thu nhỏ gọng">-</button>
+                        <span class="text-[10px] text-slate-300 font-bold px-1">Cỡ</span>
+                        <button @click="engine.setAdjustments(0.05, 0)" class="w-5 h-5 rounded-full bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-[10px]" title="Phóng to gọng">+</button>
+                        <span class="text-slate-600">|</span>
+                        <button @click="engine.setAdjustments(0, -4)" class="w-5 h-5 rounded-full bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-[10px]" title="Nâng gọng lên">⬆️</button>
+                        <button @click="engine.setAdjustments(0, 4)" class="w-5 h-5 rounded-full bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-[10px]" title="Hạ gọng xuống">⬇️</button>
+                    </div>
                     <button @click="toggleCalibrationGuide()" class="px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
                             :class="showCalibrationGuide ? 'text-amber-400 border-amber-400/50' : ''">
-                        <i class="fa-solid fa-circle-dot"></i> Khung chuẩn 55cm
-                    </button>
-                    <button @click="toggleLandmarks()" class="px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
-                            :class="showLandmarks ? 'text-amber-400 border-amber-400/50' : ''">
-                        <i class="fa-solid fa-eye"></i> Định vị mắt
+                        <i class="fa-solid fa-circle-dot"></i> Khung chuẩn
                     </button>
                     <button @click="toggleMirror()" x-show="isCameraActive" class="px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold shadow transition">
                         <i class="fa-solid fa-arrows-left-right"></i> Lật gương
@@ -540,6 +544,11 @@
                         }
                     }
                 });
+
+                // Tự động tải Người Mẫu 1 khi mở trang để người dùng thử kính tức thì
+                setTimeout(() => {
+                    this.selectSampleModel(0);
+                }, 150);
             },
 
             selectSampleModel(index) {

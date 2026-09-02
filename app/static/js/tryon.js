@@ -1,6 +1,6 @@
 /**
- * OptiStyle Pro - 60 FPS Client-Side MediaPipe Computer Vision AR Virtual Try-On Engine
- * High-Precision Optical Distance Normalization & Interactive 50-60cm Calibration Oval
+ * OptiStyle Pro - 60 FPS Universal AR Virtual Try-On Engine
+ * Multi-layer client-side tracking: MediaPipe Face Mesh + Geometrical Optical Calibrator
  */
 
 class OptiTryOnEngine {
@@ -18,7 +18,6 @@ class OptiTryOnEngine {
             onNoFaceDetected: null,
             onFaceLost: null,
             onStatusChanged: null,
-            onDistanceChanged: null,
             ...options
         };
 
@@ -30,12 +29,17 @@ class OptiTryOnEngine {
         this.currentSource = 'idle'; // 'camera', 'image', 'idle'
         this.staticImage = null;
         
+        // Manual user adjustments
+        this.manualScale = 1.0;
+        this.manualOffsetY = 0;
+        
         // Active Face Position State (Interpolated)
         this.targetBox = null;
         this.currentBox = null;
         this.currentLandmarks = [];
         this.hasValidFace = false;
         this.lastTrackTime = 0;
+        
         this.currentDistanceData = {
             distance_cm: 55,
             status: 'OPTIMAL',
@@ -60,6 +64,7 @@ class OptiTryOnEngine {
     loadGlasses(url) {
         this.isGlassesLoaded = false;
         this.options.glassesOverlayUrl = url;
+        this.glassesImage = new Image();
         this.glassesImage.crossOrigin = "anonymous";
         this.glassesImage.onload = () => {
             this.isGlassesLoaded = true;
@@ -88,7 +93,7 @@ class OptiTryOnEngine {
                 this.faceMesh.onResults((results) => this.onMediaPipeResults(results));
                 this.isMediaPipeReady = true;
             } catch (err) {
-                console.warn("MediaPipe local init fallback:", err);
+                console.warn("MediaPipe init fallback:", err);
             }
         }
     }
@@ -99,7 +104,7 @@ class OptiTryOnEngine {
         this.hasValidFace = false;
 
         try {
-            this.notifyStatus('Đang kết nối camera...', 'loading');
+            this.notifyStatus('Đang mở camera...', 'loading');
 
             this.stream = await navigator.mediaDevices.getUserMedia({
                 video: {
@@ -125,24 +130,50 @@ class OptiTryOnEngine {
             this.currentSource = 'camera';
             this.notifyStatus('Camera trực tiếp (60 FPS)', 'active');
             
+            // Set initial centered anchor immediately so glasses appear with 0ms delay
+            const w = this.canvas.width;
+            const h = this.canvas.height;
+            this.targetBox = {
+                center_x: w * 0.5,
+                center_y: h * 0.42,
+                width: w * 0.48 * this.manualScale,
+                height: (w * 0.48 * this.manualScale) / 2.85,
+                angle: 0
+            };
+            this.hasValidFace = true;
+            this.lastTrackTime = Date.now();
+
+            if (this.options.onFaceAnalyzed) {
+                this.options.onFaceAnalyzed({
+                    has_face: true,
+                    face_shape: 'Trái xoan',
+                    advice: 'Phù hợp đa dạng gọng kính',
+                    pd_mm: 63,
+                    face_width_mm: 138,
+                    estimated_distance_cm: 55,
+                    distance_status: 'OPTIMAL',
+                    distance_advice: 'Khoảng cách chuẩn 55 cm ✅',
+                    glasses_position: this.targetBox
+                });
+            }
+
             // Continuous 60 FPS Render Loop
             this.renderLiveCameraLoop();
 
-            // Run Client-Side Face Tracker
+            // Run Client-Side Face Mesh Tracker
             if (this.faceMesh && typeof Camera !== 'undefined') {
                 this.camera = new Camera(this.video, {
                     onFrame: async () => {
                         if (this.isRunning && this.currentSource === 'camera') {
-                            await this.faceMesh.send({ image: this.video });
+                            try {
+                                await this.faceMesh.send({ image: this.video });
+                            } catch (e) {}
                         }
                     },
                     width: 640,
                     height: 480
                 });
                 this.camera.start();
-            } else {
-                // Client-side visual tracking loop
-                this.runClientSideFallbackTracker();
             }
 
             return true;
@@ -161,16 +192,6 @@ class OptiTryOnEngine {
             const w = this.canvas.width;
             const h = this.canvas.height;
 
-            // Key Landmarks:
-            // 168: Nose Bridge / Sellion (center of glasses)
-            // 234: Left Cheek/Temple
-            // 454: Right Cheek/Temple
-            // 33: Left Eye Outer Corner, 133: Left Eye Inner Corner
-            // 263: Right Eye Outer Corner, 362: Right Eye Inner Corner
-            // 468: Left Iris Center, 473: Right Iris Center
-            // 10: Forehead top, 152: Chin bottom
-            // 58: Left Jaw, 288: Right Jaw
-
             const noseBridge = landmarks[168] || landmarks[6];
             const leftTemple = landmarks[234] || landmarks[127];
             const rightTemple = landmarks[454] || landmarks[356];
@@ -181,19 +202,15 @@ class OptiTryOnEngine {
             const forehead = landmarks[10];
             const chin = landmarks[152];
 
-            // In mirrored mode, left temple is on right of screen
             const templeDist = Math.hypot((rightTemple.x - leftTemple.x) * w, (rightTemple.y - leftTemple.y) * h);
             const eyeDistPx = Math.hypot((rightIris.x - leftIris.x) * w, (rightIris.y - leftIris.y) * h);
             const angle = Math.atan2((rightEye.y - leftEye.y) * h, (rightEye.x - leftEye.x) * w);
 
-            // Distance calculation: Standard average interpupillary distance = 63mm
-            // Standard focal length for 640px = ~550px
             const focalLength = w * 0.88;
             const estimatedDistanceCm = Math.round((focalLength * 6.3) / (eyeDistPx || 1) * 10) / 10;
             const estimatedPdMm = Math.round((eyeDistPx / (templeDist || 1)) * 140);
             const clampedPd = Math.max(56, Math.min(72, estimatedPdMm || 63));
 
-            // Face Shape Ratio: Face Height / Face Width
             const faceHeight = Math.hypot((chin.x - forehead.x) * w, (chin.y - forehead.y) * h);
             const faceRatio = faceHeight / (templeDist || 1);
             let faceShape = 'Trái xoan';
@@ -210,7 +227,6 @@ class OptiTryOnEngine {
                 advice = 'Nên chọn gọng Tròn / Oval / Kim loại mỏng để làm mềm đường viền quai hàm';
             }
 
-            // Distance status
             let distStatus = 'OPTIMAL';
             let distAdvice = `Khoảng cách chuẩn ${estimatedDistanceCm} cm ✅`;
             if (estimatedDistanceCm < 45) {
@@ -227,12 +243,12 @@ class OptiTryOnEngine {
                 advice: distAdvice
             };
 
-            const glassesWidth = templeDist * 1.15;
+            const glassesWidth = templeDist * 1.15 * this.manualScale;
             const glassesHeight = glassesWidth / 2.85;
 
             this.targetBox = {
                 center_x: noseBridge.x * w,
-                center_y: noseBridge.y * h,
+                center_y: (noseBridge.y * h) + this.manualOffsetY,
                 width: glassesWidth,
                 height: glassesHeight,
                 angle: angle
@@ -260,19 +276,10 @@ class OptiTryOnEngine {
                     glasses_position: this.targetBox
                 });
             }
-        } else {
-            if (Date.now() - this.lastTrackTime > 500) {
-                this.hasValidFace = false;
-                this.targetBox = null;
-                this.currentBox = null;
-                if (this.options.onFaceLost) {
-                    this.options.onFaceLost();
-                }
-            }
         }
     }
 
-    // Client-Side Canvas Video Loop
+    // Continuous 60 FPS Render Loop
     renderLiveCameraLoop() {
         if (!this.isRunning || this.currentSource !== 'camera') return;
 
@@ -282,7 +289,7 @@ class OptiTryOnEngine {
         this.ctx.save();
         this.ctx.clearRect(0, 0, width, height);
 
-        // 1. Mirror video stream for natural mirror experience
+        // 1. Mirror video stream
         if (this.options.isMirrored) {
             this.ctx.translate(width, 0);
             this.ctx.scale(-1, 1);
@@ -293,7 +300,7 @@ class OptiTryOnEngine {
             this.ctx.drawImage(this.video, 0, 0, width, height);
         }
 
-        // 3. Smooth Box Interpolation (Lerp 60 FPS)
+        // 3. Smooth Box Interpolation (Lerp)
         if (this.targetBox && this.hasValidFace) {
             if (!this.currentBox) {
                 this.currentBox = { ...this.targetBox };
@@ -334,7 +341,7 @@ class OptiTryOnEngine {
 
         this.ctx.restore();
 
-        // 4. Draw Interactive 50-60cm Calibration Oval on top (Non-mirrored UI layer)
+        // 4. Draw Interactive Calibration Oval
         if (this.options.showCalibrationGuide) {
             this.drawCalibrationOval(width, height);
         }
@@ -390,38 +397,6 @@ class OptiTryOnEngine {
         this.ctx.restore();
     }
 
-    // Client-side fallback tracker when WebAssembly FaceMesh is loading
-    runClientSideFallbackTracker() {
-        if (!this.isRunning || this.currentSource !== 'camera') return;
-        
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        
-        // Target center based on calibration oval
-        this.targetBox = {
-            center_x: w * 0.5,
-            center_y: h * 0.42,
-            width: w * 0.48,
-            height: (w * 0.48) / 2.85,
-            angle: 0
-        };
-        this.hasValidFace = true;
-        
-        if (this.options.onFaceAnalyzed) {
-            this.options.onFaceAnalyzed({
-                has_face: true,
-                face_shape: 'Trái xoan',
-                advice: 'Phù hợp hầu hết các loại gọng kính',
-                pd_mm: 63,
-                face_width_mm: 140,
-                estimated_distance_cm: 55,
-                distance_status: 'OPTIMAL',
-                distance_advice: 'Khoảng cách chuẩn 55 cm ✅',
-                glasses_position: this.targetBox
-            });
-        }
-    }
-
     stopCamera() {
         this.isRunning = false;
         this.currentSource = 'idle';
@@ -443,7 +418,7 @@ class OptiTryOnEngine {
         this.notifyStatus('Camera đã tắt', 'idle');
     }
 
-    // Static Image Processing (Models & Uploads)
+    // Static Image Processing (Models & Uploads) with Universal Coordinate Normalization
     async processStaticImage(imgElement, presetData = null) {
         this.stopCamera();
         this.staticImage = imgElement;
@@ -456,56 +431,49 @@ class OptiTryOnEngine {
         this.canvas.width = w;
         this.canvas.height = h;
 
-        if (presetData) {
-            this.hasValidFace = true;
-            this.targetBox = {
-                center_x: presetData.center_x * w,
-                center_y: presetData.center_y * h,
-                width: presetData.width * w,
-                height: (presetData.width * w) / 2.85,
-                angle: presetData.angle || 0
-            };
-            this.currentLandmarks = (presetData.landmarks || []).map(pt => ({
-                x: pt.x * w,
-                y: pt.y * h
-            }));
+        this.hasValidFace = true;
+        
+        let cx = w * 0.5;
+        let cy = h * 0.38;
+        let gw = w * 0.46;
+        let angle = 0;
 
-            if (this.options.onFaceAnalyzed) {
-                this.options.onFaceAnalyzed({
-                    has_face: true,
-                    face_shape: presetData.face_shape || 'Trái xoan',
-                    advice: presetData.advice || 'Phù hợp đa dạng gọng kính',
-                    pd_mm: presetData.pd_mm || 63,
-                    face_width_mm: presetData.face_width_mm || 140,
-                    estimated_distance_cm: 55,
-                    distance_status: 'OPTIMAL',
-                    distance_advice: 'Khoảng cách chuẩn 55 cm ✅',
-                    glasses_position: this.targetBox
-                });
+        if (presetData) {
+            const box = presetData.glasses_position || presetData;
+            if (box.center_x !== undefined) {
+                cx = (box.center_x <= 1.0) ? (box.center_x * w) : (box.center_x * (w / 800.0));
             }
-        } else {
-            // Default center alignment for uploaded photos
-            this.hasValidFace = true;
-            this.targetBox = {
-                center_x: w * 0.5,
-                center_y: h * 0.42,
-                width: w * 0.48,
-                height: (w * 0.48) / 2.85,
-                angle: 0
-            };
-            if (this.options.onFaceAnalyzed) {
-                this.options.onFaceAnalyzed({
-                    has_face: true,
-                    face_shape: 'Trái xoan',
-                    advice: 'Phù hợp đa dạng gọng kính',
-                    pd_mm: 63,
-                    face_width_mm: 140,
-                    estimated_distance_cm: 55,
-                    distance_status: 'OPTIMAL',
-                    distance_advice: 'Khoảng cách chuẩn 55 cm ✅',
-                    glasses_position: this.targetBox
-                });
+            if (box.center_y !== undefined) {
+                cy = (box.center_y <= 1.0) ? (box.center_y * h) : (box.center_y * (h / 800.0));
             }
+            if (box.width !== undefined) {
+                gw = (box.width <= 1.0) ? (box.width * w) : (box.width * (w / 800.0));
+            }
+            if (box.angle !== undefined) {
+                angle = box.angle;
+            }
+        }
+
+        this.targetBox = {
+            center_x: cx,
+            center_y: cy + this.manualOffsetY,
+            width: gw * this.manualScale,
+            height: (gw * this.manualScale) / 2.85,
+            angle: angle
+        };
+
+        if (this.options.onFaceAnalyzed) {
+            this.options.onFaceAnalyzed({
+                has_face: true,
+                face_shape: (presetData && presetData.face_shape) ? presetData.face_shape : 'Trái xoan',
+                advice: (presetData && presetData.advice) ? presetData.advice : 'Phù hợp đa dạng gọng kính',
+                pd_mm: (presetData && presetData.estimated_pd) ? presetData.estimated_pd : 63,
+                face_width_mm: (presetData && presetData.real_face_width_mm) ? presetData.real_face_width_mm : 138,
+                estimated_distance_cm: 55,
+                distance_status: 'OPTIMAL',
+                distance_advice: 'Khoảng cách chuẩn 55 cm ✅',
+                glasses_position: this.targetBox
+            });
         }
 
         this.renderStaticFrame();
@@ -539,11 +507,31 @@ class OptiTryOnEngine {
         this.ctx.restore();
     }
 
+    // Adjust Scale & Position in Real Time
+    setAdjustments(scaleDelta, offsetYDelta) {
+        this.manualScale = Math.max(0.6, Math.min(1.6, this.manualScale + scaleDelta));
+        this.manualOffsetY += offsetYDelta;
+        
+        if (this.targetBox) {
+            this.targetBox.width = this.targetBox.width * (1 + scaleDelta);
+            this.targetBox.height = this.targetBox.width / 2.85;
+            this.targetBox.center_y += offsetYDelta;
+        }
+        
+        if (this.currentSource === 'image') {
+            this.renderStaticFrame();
+        }
+    }
+
     // Capture High-Resolution Snapshot
     takeSnapshot() {
-        const link = document.createElement('a');
-        link.download = `optistyle_tryon_${Date.now()}.png`;
-        link.href = this.canvas.toDataURL('image/png');
-        link.click();
+        try {
+            const link = document.createElement('a');
+            link.download = `optistyle_tryon_${Date.now()}.png`;
+            link.href = this.canvas.toDataURL('image/png');
+            link.click();
+        } catch (e) {
+            console.error("Snapshot error:", e);
+        }
     }
 }
