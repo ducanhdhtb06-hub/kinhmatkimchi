@@ -1,6 +1,6 @@
 import os
 import sys
-from urllib.parse import parse_qs
+import json
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
@@ -9,35 +9,32 @@ if project_root not in sys.path:
 if os.path.join(project_root, "app") not in sys.path:
     sys.path.insert(0, os.path.join(project_root, "app"))
 
-from app.main import app as _app
+from app.main import app as fastapi_app
 
 async def app(scope, receive, send):
     if scope.get("type") == "http":
-        # 1. Đọc tham số path từ Vercel query string
-        query_string = scope.get("query_string", b"").decode("utf-8")
-        params = parse_qs(query_string)
-        if "path" in params and params["path"]:
-            new_path = params["path"][0]
-            if not new_path.startswith("/"):
-                new_path = "/" + new_path
-            while "//" in new_path:
-                new_path = new_path.replace("//", "/")
-            scope["path"] = new_path
-            scope["raw_path"] = new_path.encode("utf-8")
-        else:
-            # 2. Đọc header x-matched-path nếu có
-            headers = dict(scope.get("headers", []))
-            matched_path = headers.get(b"x-matched-path", b"").decode("utf-8")
-            if matched_path:
-                orig_path = matched_path.split("?")[0]
-                for prefix in ["/api/index.py", "/api/index"]:
-                    if orig_path.startswith(prefix + "/"):
-                        orig_path = orig_path[len(prefix):]
-                    elif orig_path == prefix:
-                        orig_path = "/"
-                scope["path"] = orig_path
-                scope["raw_path"] = orig_path.encode("utf-8")
+        headers_dict = {k.decode('latin1'): v.decode('latin1') for k, v in scope.get("headers", [])}
+        
+        # Test endpoint to see exact Vercel scope & headers
+        if scope.get("path") == "/_debug_scope" or headers_dict.get("x-matched-path") == "/_debug_scope":
+            body = json.dumps({
+                "path": scope.get("path"),
+                "raw_path": scope.get("raw_path", b"").decode('latin1'),
+                "query_string": scope.get("query_string", b"").decode('latin1'),
+                "headers": headers_dict
+            }, indent=2).encode('utf-8')
+            
+            await send({
+                'type': 'http.response.start',
+                'status': 200,
+                'headers': [[b'content-type', b'application/json']]
+            })
+            await send({
+                'type': 'http.response.body',
+                'body': body
+            })
+            return
 
-    await _app(scope, receive, send)
+    await fastapi_app(scope, receive, send)
 
 handler = app
