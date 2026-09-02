@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6" x-data="{ currentTab: 'scorers' }">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-extrabold text-white">Bảng Xếp Hạng Chuyên Môn</h1>
+            <p class="text-xs text-slate-400 mt-1">
+                Vinh danh cá nhân và thống kê xếp hạng toàn đội: Bàn thắng, Kiến tạo, Rating hiệu suất và Fair-play.
+            </p>
+        </div>
+    </div>
+
+    <!-- Category Tabs -->
+    <div class="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
+        <button @click="currentTab = 'scorers'" :class="currentTab === 'scorers' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'text-slate-400 hover:text-white border-transparent'" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 whitespace-nowrap">
+            <span>⚽ Vua Phá Lưới (Goals)</span>
+        </button>
+        <button @click="currentTab = 'assists'" :class="currentTab === 'assists' ? 'bg-teal-500/10 text-teal-400 border-teal-500/30' : 'text-slate-400 hover:text-white border-transparent'" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 whitespace-nowrap">
+            <span>🎯 Vua Kiến Tạo (Assists)</span>
+        </button>
+        <button @click="currentTab = 'ratings'" :class="currentTab === 'ratings' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'text-slate-400 hover:text-white border-transparent'" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 whitespace-nowrap">
+            <span>⭐ Điểm Hiệu Suất (Rating 1-10)</span>
+        </button>
+        <button @click="currentTab = 'fairplay'" :class="currentTab === 'fairplay' ? 'bg-sky-500/10 text-sky-400 border-sky-500/30' : 'text-slate-400 hover:text-white border-transparent'" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 whitespace-nowrap">
+            <span>🕊️ Bảng Fair-Play (Thẻ phạt)</span>
+        </button>
+        <button @click="currentTab = 'all'" :class="currentTab === 'all' ? 'bg-slate-800 text-slate-200 border-slate-700' : 'text-slate-400 hover:text-white border-transparent'" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 whitespace-nowrap">
+            <span>📊 Bảng Tổng Hợp Chi Tiết</span>
+        </button>
+    </div>
+
+    <!-- TAB 1: TOP SCORERS -->
+    <div x-show="currentTab === 'scorers'" class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div class="p-4 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">⚽ Danh sách Vua Phá Lưới (Top Scorers)</span>
+            <span class="text-xs text-slate-400">Xếp theo số bàn thắng ghi được</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 bg-slate-950/40">
+                        <th class="py-3 px-4 w-16 text-center">Hạng</th>
+                        <th class="py-3 px-4">Cầu thủ</th>
+                        <th class="py-3 px-4 text-center">Vị trí</th>
+                        <th class="py-3 px-4 text-center">Số trận</th>
+                        <th class="py-3 px-4 text-center">Kiến tạo</th>
+                        <th class="py-3 px-4 text-center">Hiệu suất TB</th>
+                        <th class="py-3 px-4 text-right">Tổng bàn thắng</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800 text-xs">
+                    {% for s in leaderboards.top_scorers %}
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="py-3.5 px-4 text-center font-black text-sm">
+                                {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}<span class="text-slate-400">#{{ loop.index }}</span>{% endif %}
+                            </td>
+                            <td class="py-3.5 px-4">
+                                <a href="/players/{{ s.player.id }}" class="font-bold text-white hover:text-emerald-400 text-sm flex items-center gap-2">
+                                    {{ s.player.name }}
+                                    <span class="text-xs text-slate-400 font-normal">#{{ s.player.jersey_number }}</span>
+                                </a>
+                            </td>
+                            <td class="py-3.5 px-4 text-center text-slate-400">{{ s.player.position }}</td>
+                            <td class="py-3.5 px-4 text-center font-semibold text-slate-300">{{ s.matches_played }}</td>
+                            <td class="py-3.5 px-4 text-center text-teal-400 font-semibold">{{ s.assists }}</td>
+                            <td class="py-3.5 px-4 text-center text-slate-300 font-bold">⭐ {{ s.avg_rating }}</td>
+                            <td class="py-3.5 px-4 text-right font-black text-amber-400 text-base">⚽ {{ s.goals }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 2: TOP ASSISTS -->
+    <div x-show="currentTab === 'assists'" class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden shadow-xl" style="display: none;">
+        <div class="p-4 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between">
+            <span class="text-xs font-bold text-teal-400 uppercase tracking-wider">🎯 Danh sách Vua Kiến Tạo (Playmakers)</span>
+            <span class="text-xs text-slate-400">Xếp theo số đường chuyền thành bàn</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 bg-slate-950/40">
+                        <th class="py-3 px-4 w-16 text-center">Hạng</th>
+                        <th class="py-3 px-4">Cầu thủ</th>
+                        <th class="py-3 px-4 text-center">Vị trí</th>
+                        <th class="py-3 px-4 text-center">Số trận</th>
+                        <th class="py-3 px-4 text-center">Bàn thắng</th>
+                        <th class="py-3 px-4 text-center">Hiệu suất TB</th>
+                        <th class="py-3 px-4 text-right">Tổng kiến tạo</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800 text-xs">
+                    {% for s in leaderboards.top_assists %}
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="py-3.5 px-4 text-center font-black text-sm">
+                                {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}<span class="text-slate-400">#{{ loop.index }}</span>{% endif %}
+                            </td>
+                            <td class="py-3.5 px-4">
+                                <a href="/players/{{ s.player.id }}" class="font-bold text-white hover:text-emerald-400 text-sm flex items-center gap-2">
+                                    {{ s.player.name }}
+                                    <span class="text-xs text-slate-400 font-normal">#{{ s.player.jersey_number }}</span>
+                                </a>
+                            </td>
+                            <td class="py-3.5 px-4 text-center text-slate-400">{{ s.player.position }}</td>
+                            <td class="py-3.5 px-4 text-center font-semibold text-slate-300">{{ s.matches_played }}</td>
+                            <td class="py-3.5 px-4 text-center text-amber-400 font-semibold">{{ s.goals }}</td>
+                            <td class="py-3.5 px-4 text-center text-slate-300 font-bold">⭐ {{ s.avg_rating }}</td>
+                            <td class="py-3.5 px-4 text-right font-black text-teal-400 text-base">🎯 {{ s.assists }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 3: TOP RATINGS -->
+    <div x-show="currentTab === 'ratings'" class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden shadow-xl" style="display: none;">
+        <div class="p-4 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between">
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">⭐ Điểm Hiệu Suất Cao Nhất (Highest Average Rating)</span>
+            <span class="text-xs text-slate-400">Chấm điểm từ 1.0 đến 10.0</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 bg-slate-950/40">
+                        <th class="py-3 px-4 w-16 text-center">Hạng</th>
+                        <th class="py-3 px-4">Cầu thủ</th>
+                        <th class="py-3 px-4 text-center">Vị trí</th>
+                        <th class="py-3 px-4 text-center">Số trận</th>
+                        <th class="py-3 px-4 text-center">Bàn thắng</th>
+                        <th class="py-3 px-4 text-center">Kiến tạo</th>
+                        <th class="py-3 px-4 text-center">MVP trận</th>
+                        <th class="py-3 px-4 text-right">Rating Trung Bình</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800 text-xs">
+                    {% for s in leaderboards.top_ratings %}
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="py-3.5 px-4 text-center font-black text-sm">
+                                {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}<span class="text-slate-400">#{{ loop.index }}</span>{% endif %}
+                            </td>
+                            <td class="py-3.5 px-4">
+                                <a href="/players/{{ s.player.id }}" class="font-bold text-white hover:text-emerald-400 text-sm flex items-center gap-2">
+                                    {{ s.player.name }}
+                                    <span class="text-xs text-slate-400 font-normal">#{{ s.player.jersey_number }}</span>
+                                </a>
+                            </td>
+                            <td class="py-3.5 px-4 text-center text-slate-400">{{ s.player.position }}</td>
+                            <td class="py-3.5 px-4 text-center font-semibold text-slate-300">{{ s.matches_played }}</td>
+                            <td class="py-3.5 px-4 text-center text-amber-400 font-semibold">{{ s.goals }}</td>
+                            <td class="py-3.5 px-4 text-center text-teal-400 font-semibold">{{ s.assists }}</td>
+                            <td class="py-3.5 px-4 text-center text-amber-300 font-bold">⭐ {{ s.mvp_count }}</td>
+                            <td class="py-3.5 px-4 text-right">
+                                <span class="inline-block px-3 py-1 rounded-lg font-black text-sm {% if s.avg_rating >= 8.5 %}rating-badge-excellent{% elif s.avg_rating >= 7.5 %}rating-badge-good{% else %}rating-badge-average{% endif %}">
+                                    ⭐ {{ s.avg_rating }}
+                                </span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 4: FAIR PLAY -->
+    <div x-show="currentTab === 'fairplay'" class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden shadow-xl" style="display: none;">
+        <div class="p-4 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between">
+            <span class="text-xs font-bold text-sky-400 uppercase tracking-wider">🕊️ Bảng Xếp Hạng Fair-Play (Kỷ luật & Thẻ phạt)</span>
+            <span class="text-xs text-slate-400">1 Thẻ vàng = 1đ phạt • 1 Thẻ đỏ = 3đ phạt</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 bg-slate-950/40">
+                        <th class="py-3 px-4 w-16 text-center">Hạng</th>
+                        <th class="py-3 px-4">Cầu thủ</th>
+                        <th class="py-3 px-4 text-center">Vị trí</th>
+                        <th class="py-3 px-4 text-center">Số trận</th>
+                        <th class="py-3 px-4 text-center">🟨 Thẻ vàng</th>
+                        <th class="py-3 px-4 text-center">🟥 Thẻ đỏ</th>
+                        <th class="py-3 px-4 text-right">Điểm Kỷ Luật</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800 text-xs">
+                    {% for s in leaderboards.fair_play %}
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="py-3.5 px-4 text-center font-bold text-slate-400">#{{ loop.index }}</td>
+                            <td class="py-3.5 px-4">
+                                <a href="/players/{{ s.player.id }}" class="font-bold text-white hover:text-emerald-400 text-sm flex items-center gap-2">
+                                    {{ s.player.name }}
+                                    <span class="text-xs text-slate-400 font-normal">#{{ s.player.jersey_number }}</span>
+                                </a>
+                            </td>
+                            <td class="py-3.5 px-4 text-center text-slate-400">{{ s.player.position }}</td>
+                            <td class="py-3.5 px-4 text-center font-semibold text-slate-300">{{ s.matches_played }}</td>
+                            <td class="py-3.5 px-4 text-center text-amber-400 font-bold">{{ s.yellow_cards }}</td>
+                            <td class="py-3.5 px-4 text-center text-rose-500 font-bold">{{ s.red_cards }}</td>
+                            <td class="py-3.5 px-4 text-right">
+                                {% if s.penalty_points == 0 %}
+                                    <span class="px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">0 (Tuyệt vời ✨)</span>
+                                {% else %}
+                                    <span class="px-3 py-1 rounded-lg bg-slate-800 text-amber-400 font-bold">-{{ s.penalty_points }}đ</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 5: ALL STATS TABLE -->
+    <div x-show="currentTab === 'all'" class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden shadow-xl" style="display: none;">
+        <div class="p-4 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">📊 Tổng Hợp Toàn Bộ Chỉ Số Cầu Thủ</span>
+            <span class="text-xs text-slate-400">{{ all_stats|length }} cầu thủ</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse min-w-[720px]">
+                <thead>
+                    <tr class="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 bg-slate-950/40">
+                        <th class="py-3 px-4">Cầu thủ</th>
+                        <th class="py-3 px-4 text-center">Vị trí</th>
+                        <th class="py-3 px-4 text-center">Số trận</th>
+                        <th class="py-3 px-4 text-center">⚽ Bàn thắng</th>
+                        <th class="py-3 px-4 text-center">🎯 Kiến tạo</th>
+                        <th class="py-3 px-4 text-center">G + A</th>
+                        <th class="py-3 px-4 text-center">Thẻ phạt</th>
+                        <th class="py-3 px-4 text-center">⭐ Rating TB</th>
+                        <th class="py-3 px-4 text-center">MVP</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800 text-xs">
+                    {% for s in all_stats %}
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="py-3.5 px-4">
+                                <a href="/players/{{ s.player.id }}" class="font-bold text-white hover:text-emerald-400 text-sm flex items-center gap-2">
+                                    #{{ s.player.jersey_number }} {{ s.player.name }}
+                                </a>
+                            </td>
+                            <td class="py-3.5 px-4 text-center text-slate-400">{{ s.player.position }}</td>
+                            <td class="py-3.5 px-4 text-center font-semibold text-slate-300">{{ s.matches_played }}</td>
+                            <td class="py-3.5 px-4 text-center font-bold text-amber-400">{{ s.goals }}</td>
+                            <td class="py-3.5 px-4 text-center font-bold text-teal-400">{{ s.assists }}</td>
+                            <td class="py-3.5 px-4 text-center font-bold text-emerald-400">{{ s.goal_contributions }}</td>
+                            <td class="py-3.5 px-4 text-center text-slate-300">{{ s.yellow_cards }}🟨 {{ s.red_cards }}🟥</td>
+                            <td class="py-3.5 px-4 text-center font-bold text-teal-300">⭐ {{ s.avg_rating }}</td>
+                            <td class="py-3.5 px-4 text-center text-amber-300 font-bold">{{ s.mvp_count }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

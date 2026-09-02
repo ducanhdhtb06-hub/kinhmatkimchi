@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gold: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                        },
+                        lux: {
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#090d16',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Be Vietnam Pro"', 'system-ui', '-apple-system', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Marked.js (Markdown renderer for chatbot) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.6);
+        }
+        .chat-prose h3 { font-size: 13px; font-weight: 800; color: #fbbf24; margin-bottom: 6px; }
+        .chat-prose h4 { font-size: 12px; font-weight: 700; color: #38bdf8; margin-top: 8px; margin-bottom: 4px; }
+        .chat-prose p { margin-bottom: 6px; line-height: 1.5; }
+        .chat-prose ul { list-style-type: disc; padding-left: 16px; margin-bottom: 6px; }
+        .chat-prose li { margin-bottom: 3px; }
+        .chat-prose a { color: #fbbf24; font-weight: 700; text-decoration: underline; }
+        .chat-prose strong { color: #ffffff; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased selection:bg-amber-500 selection:text-slate-950" x-data="globalCartApp()">
+
+    <!-- Top Announcement Bar -->
+    <div class="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-700 text-slate-950 text-xs font-bold py-1.5 px-4 text-center tracking-wide">
+        ✨ Kính Mắt Kim Chi • Miễn phí cắt tròng kính cận chống xước cho đơn gọng từ 800.000đ • Đổi trả miễn phí 30 ngày
+    </div>
+
+    <!-- Navigation Header -->
+    <header class="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16 sm:h-20">
+                
+                <!-- Logo: Kính Mắt Kim Chi -->
+                <div class="flex items-center gap-3">
+                    <a href="/" class="flex items-center gap-2.5 group">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/25 group-hover:scale-105 transition">
+                            <i class="fa-solid fa-glasses text-xl"></i>
+                        </div>
+                        <div>
+                            <span class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-slate-100 to-amber-400 bg-clip-text text-transparent">Kính Mắt Kim Chi</span>
+                            <span class="text-[10px] text-amber-400 block font-bold -mt-1 tracking-widest uppercase">KIM CHI EYEWEAR</span>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Desktop Navigation Links -->
+                <nav class="hidden md:flex items-center space-x-1 lg:space-x-2">
+                    <a href="/" class="px-3.5 py-2 rounded-xl text-sm font-medium transition {% if active_nav == 'home' %}text-amber-400 bg-amber-500/10 font-bold{% else %}text-slate-300 hover:text-white hover:bg-slate-900{% endif %}">
+                        Trang chủ
+                    </a>
+                    <a href="/products" class="px-3.5 py-2 rounded-xl text-sm font-medium transition {% if active_nav == 'products' %}text-amber-400 bg-amber-500/10 font-bold{% else %}text-slate-300 hover:text-white hover:bg-slate-900{% endif %}">
+                        Bộ sưu tập gọng
+                    </a>
+                    <a href="/tryon" class="px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 bg-gradient-to-r from-amber-500/20 to-teal-500/20 text-amber-300 border border-amber-500/30 hover:border-amber-400 hover:scale-105">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                        <i class="fa-solid fa-camera text-xs"></i> Thử Kính AR Ảo
+                    </a>
+                    <a href="/prescription-scan" class="px-3.5 py-2 rounded-xl text-sm font-bold transition flex items-center gap-1.5 {% if active_nav == 'prescription_scan' %}text-amber-400 bg-amber-500/10 border border-amber-500/30 font-bold{% else %}text-slate-300 hover:text-white hover:bg-slate-900{% endif %}">
+                        <i class="fa-solid fa-file-medical text-amber-400 text-xs"></i> Quét Đơn Kính AI 📸
+                    </a>
+                    <a href="/orders/track" class="px-3.5 py-2 rounded-xl text-sm font-medium transition {% if active_nav == 'orders' %}text-amber-400 bg-amber-500/10 font-bold{% else %}text-slate-300 hover:text-white hover:bg-slate-900{% endif %}">
+                        Tra cứu đơn
+                    </a>
+                    {% if current_user and current_user.role == 'admin' %}
+                        <a href="/admin" class="px-3.5 py-2 rounded-xl text-sm font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-shield-halved text-xs"></i> Bảng Quản Trị
+                        </a>
+                    {% endif %}
+                </nav>
+
+                <!-- Right Actions: User Profile & Cart -->
+                <div class="flex items-center gap-2.5 sm:gap-3">
+                    <a href="/cart" class="relative p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 text-slate-200 hover:text-amber-400 transition flex items-center gap-2">
+                        <i class="fa-solid fa-cart-shopping text-base"></i>
+                        <span class="hidden sm:inline text-xs font-semibold">Giỏ hàng</span>
+                        <span class="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950" x-text="cartItemsCount" x-show="cartItemsCount > 0"></span>
+                    </a>
+
+                    {% if current_user %}
+                        <!-- Logged-in User Profile Dropdown / Card -->
+                        <div class="flex items-center gap-2 pl-2 border-l border-slate-800">
+                            <a href="/profile" class="flex items-center gap-2 group" title="Xem hồ sơ cá nhân">
+                                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 text-slate-950 flex items-center justify-center font-black text-xs shadow-md group-hover:scale-105 transition">
+                                    {{ current_user.full_name[:1].upper() }}
+                                </div>
+                                <div class="hidden lg:block text-left text-xs">
+                                    <div class="font-bold text-white group-hover:text-amber-400 transition leading-tight truncate max-w-[120px]">{{ current_user.full_name }}</div>
+                                    <div class="text-[10px] text-amber-400 font-semibold">{{ 'Quản trị viên' if current_user.role == 'admin' else 'Thành viên' }}</div>
+                                </div>
+                            </a>
+                            <a href="/logout" class="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-slate-900 transition ml-1" title="Đăng xuất">
+                                <i class="fa-solid fa-arrow-right-from-bracket text-sm"></i>
+                            </a>
+                        </div>
+                    {% else %}
+                        <!-- Not Logged In -->
+                        <a href="/login" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-right-to-bracket"></i>
+                            <span>Đăng nhập</span>
+                        </a>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 border-t border-slate-800/80 text-slate-400 text-xs py-10 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div class="space-y-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 font-bold text-base">
+                        <i class="fa-solid fa-glasses"></i>
+                    </div>
+                    <span class="font-extrabold text-lg text-white">Kính Mắt Kim Chi</span>
+                </div>
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    Hệ thống kính mắt thông minh cao cấp tích hợp công nghệ Computer Vision & AR Virtual Try-On chuẩn quang học.
+                </p>
+            </div>
+            <div>
+                <h4 class="font-bold text-white uppercase text-xs tracking-wider mb-3">Công Nghệ Độc Quyền</h4>
+                <ul class="space-y-2">
+                    <li><a href="/tryon" class="hover:text-amber-400 transition">📸 AR Virtual Try-On (Thử kính 60 FPS)</a></li>
+                    <li><a href="/tryon" class="hover:text-amber-400 transition">👤 Nhận diện dáng khuôn mặt AI</a></li>
+                    <li><a href="/tryon" class="hover:text-amber-400 transition">📏 Tự động đo khoảng cách đồng tử PD</a></li>
+                    <li><a href="/cart" class="hover:text-amber-400 transition">📄 Tải phiếu khám mắt & Cắt tròng online</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-white uppercase text-xs tracking-wider mb-3">Chính Sách Khách Hàng</h4>
+                <ul class="space-y-2">
+                    <li>🛡️ Bảo hành ốc vít & ve mũi trọn đời</li>
+                    <li>🔄 Đổi mới miễn phí trong 30 ngày nếu đeo lệch độ</li>
+                    <li>🚚 Giao hàng toàn quốc & Kiểm tra trước khi thanh toán</li>
+                    <li>🧼 Tặng kèm hộp da cao cấp & khăn nano lau kính</li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-white uppercase text-xs tracking-wider mb-3">Hỗ Trợ & Liên Hệ</h4>
+                <p class="mb-2">📍 Hotline tư vấn: <strong class="text-amber-400">1900 6868</strong></p>
+                <p class="mb-2">⏱️ Giờ mở cửa: 08:30 - 21:30 (Tất cả các ngày)</p>
+                <p>📧 Email: contact@kinhmatkimchi.vn</p>
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 mt-8 border-t border-slate-800/60 text-center text-[11px] text-slate-400">
+            © 2026 Kính Mắt Kim Chi (Kim Chi Eyewear & Computer Vision). All rights reserved.
+        </div>
+    </footer>
+
+    <!-- ================= FLOATING RAG CHATBOT WIDGET ================= -->
+    <div x-data="ragChatbotWidget()" class="fixed bottom-6 right-6 z-50">
+        
+        <!-- Chatbot Window Modal -->
+        <div x-show="isOpen" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 translate-y-8 scale-95"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-8 scale-95"
+             class="w-[360px] sm:w-[420px] h-[560px] max-h-[85vh] bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden mb-4">
+            
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 p-4 text-slate-950 flex items-center justify-between shadow-md">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center font-black text-lg shadow-inner">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div>
+                        <div class="font-extrabold text-sm text-slate-950 flex items-center gap-1.5">
+                            Kim Chi AI Quang Học
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        </div>
+                        <div class="text-[10px] text-slate-900 font-semibold">Tư vấn chọn gọng, tròng & độ cận 24/7</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button @click="clearChat()" title="Xóa lịch sử chat" class="w-7 h-7 rounded-lg hover:bg-slate-900/20 text-slate-950 flex items-center justify-center transition text-xs">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                    <button @click="isOpen = false" title="Đóng chat" class="w-7 h-7 rounded-lg hover:bg-slate-900/20 text-slate-950 flex items-center justify-center transition text-sm font-bold">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Messages Stream Area -->
+            <div id="chatMessagesBox" class="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+                
+                <!-- Welcome Bot Message -->
+                <div class="flex items-start gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center flex-shrink-0 text-xs">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 text-slate-200 p-3.5 rounded-2xl rounded-tl-none max-w-[85%] space-y-2 shadow">
+                        <p class="leading-relaxed">
+                            Xin chào! Tôi là <strong>Trợ lý AI Quang Học</strong> của <strong>Kính Mắt Kim Chi</strong> 👓✨.
+                        </p>
+                        <p class="text-slate-300 leading-relaxed">
+                            Tôi có thể tư vấn giúp bạn chọn gọng hợp dáng mặt, tư vấn chiết suất tròng kính cận/loạn/đổi màu hoặc giải đáp thông số trên phiếu khám mắt. Bạn cần hỗ trợ gì hôm nay?
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Dynamic Chat Conversation -->
+                <template x-for="(msg, idx) in messages" :key="idx">
+                    <div :class="msg.role === 'user' ? 'flex justify-end' : 'flex items-start gap-2.5'">
+                        
+                        <!-- Bot Avatar -->
+                        <template x-if="msg.role === 'bot'">
+                            <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center flex-shrink-0 text-xs">
+                                <i class="fa-solid fa-robot"></i>
+                            </div>
+                        </template>
+
+                        <!-- Message Content Bubble -->
+                        <div :class="msg.role === 'user' 
+                                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-semibold p-3 rounded-2xl rounded-tr-none max-w-[85%] shadow-lg' 
+                                    : 'bg-slate-950 border border-slate-800 text-slate-200 p-3.5 rounded-2xl rounded-tl-none max-w-[85%] shadow chat-prose'"
+                             x-html="msg.role === 'bot' ? renderMarkdown(msg.text) : msg.text">
+                        </div>
+
+                    </div>
+                </template>
+
+                <!-- Loading Typing Indicator -->
+                <div x-show="isLoading" class="flex items-start gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center flex-shrink-0 text-xs">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 text-slate-400 px-3.5 py-2.5 rounded-2xl rounded-tl-none flex items-center gap-1.5 shadow">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce"></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:0.2s]"></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:0.4s]"></span>
+                        <span class="text-[11px] ml-1 text-slate-400 font-medium">Đang truy xuất kiến thức quang học...</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Suggestion Quick Chips -->
+            <div class="px-3 py-2 bg-slate-950/80 border-t border-slate-800/80 flex items-center gap-1.5 overflow-x-auto text-[11px] scrollbar-none">
+                <template x-for="(sug, sIdx) in activeSuggestions" :key="sIdx">
+                    <button @click="sendQuery(sug)" 
+                            class="px-2.5 py-1 rounded-full bg-slate-900 hover:bg-amber-500/10 border border-slate-800 hover:border-amber-500/40 text-slate-300 hover:text-amber-400 whitespace-nowrap transition flex-shrink-0">
+                        <span x-text="sug"></span>
+                    </button>
+                </template>
+            </div>
+
+            <!-- Input Bar -->
+            <div class="p-3 bg-slate-950 border-t border-slate-800 flex items-center gap-2">
+                <input type="text" 
+                       x-model="inputQuery" 
+                       @keydown.enter="sendCurrentQuery()"
+                       placeholder="Hỏi về dáng mặt, chiết suất, độ cận..." 
+                       class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition">
+                <button @click="sendCurrentQuery()" 
+                        :disabled="isLoading || !inputQuery.trim()"
+                        class="w-10 h-10 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 text-slate-950 flex items-center justify-center font-bold transition disabled:opacity-50 disabled:cursor-not-allowed shadow">
+                    <i class="fa-solid fa-paper-plane text-xs"></i>
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Floating Trigger Button -->
+        <button @click="isOpen = !isOpen" 
+                class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-slate-950 flex items-center justify-center font-black text-xl shadow-2xl shadow-amber-500/40 hover:scale-110 active:scale-95 transition group relative">
+            <i class="fa-solid" :class="isOpen ? 'fa-xmark' : 'fa-comments'"></i>
+            <span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-slate-950 animate-pulse"></span>
+            
+            <!-- Tooltip Badge on Hover -->
+            <span class="absolute right-16 top-1/2 -translate-y-1/2 bg-slate-900 text-amber-400 text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-800 shadow-xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none hidden sm:block">
+                💬 Chatbot AI Quang Học
+            </span>
+        </button>
+
+    </div>
+
+    <!-- Global Cart & Chatbot State Engines -->
+    <script>
+        function ragChatbotWidget() {
+            return {
+                isOpen: false,
+                isLoading: false,
+                inputQuery: '',
+                messages: [],
+                activeSuggestions: [
+                    "Tư vấn chọn gọng cho mặt tròn 👩",
+                    "Cận -4.50D nên chọn tròng nào? 🔬",
+                    "Tròng chống ánh sáng xanh 💻",
+                    "Tròng đổi màu khi ra nắng ☀️",
+                    "Khoảng cách đồng tử PD là gì? 📏",
+                    "Chính sách bảo hành Kính Kim Chi 🛡️"
+                ],
+
+                renderMarkdown(content) {
+                    if (!content) return '';
+                    let clean = content
+                        .replace(/\$\s*\\rightarrow\s*\$/g, '→')
+                        .replace(/\\rightarrow/g, '→')
+                        .replace(/\$\\Rightarrow\$/g, '⇒')
+                        .replace(/\\Rightarrow/g, '⇒');
+                    if (typeof marked !== 'undefined') {
+                        return marked.parse(clean);
+                    }
+                    return clean;
+                },
+
+                scrollToBottom() {
+                    this.$nextTick(() => {
+                        const box = document.getElementById('chatMessagesBox');
+                        if (box) box.scrollTop = box.scrollHeight;
+                    });
+                },
+
+                clearChat() {
+                    this.messages = [];
+                    this.activeSuggestions = [
+                        "Tư vấn chọn gọng cho mặt tròn 👩",
+                        "Cận -4.50D nên chọn tròng nào? 🔬",
+                        "Tròng chống ánh sáng xanh 💻",
+                        "Chính sách bảo hành Kính Kim Chi 🛡️"
+                    ];
+                },
+
+                sendCurrentQuery() {
+                    if (!this.inputQuery.trim() || this.isLoading) return;
+                    const query = this.inputQuery.trim();
+                    this.inputQuery = '';
+                    this.sendQuery(query);
+                },
+
+                async sendQuery(queryText) {
+                    if (!queryText || this.isLoading) return;
+                    this.isOpen = true;
+
+                    // Add user message
+                    this.messages.push({ role: 'user', text: queryText });
+                    this.isLoading = true;
+                    this.scrollToBottom();
+
+                    try {
+                        const res = await fetch('/api/chat/ask', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ message: queryText })
+                        });
+                        const data = await res.json();
+
+                        this.messages.push({
+                            role: 'bot',
+                            text: data.reply || 'Xin lỗi, tôi chưa thể trả lời câu hỏi này lúc này.'
+                        });
+
+                        if (data.suggestions && data.suggestions.length > 0) {
+                            this.activeSuggestions = data.suggestions;
+                        }
+                    } catch (err) {
+                        this.messages.push({
+                            role: 'bot',
+                            text: '⚠️ Không thể kết nối tới máy chủ AI. Vui lòng kiểm tra lại đường truyền hoặc thử lại sau.'
+                        });
+                    } finally {
+                        this.isLoading = false;
+                        this.scrollToBottom();
+                    }
+                }
+            }
+        }
+
+        function globalCartApp() {
+            return {
+                cart: [],
+                init() {
+                    try {
+                        const saved = localStorage.getItem('opti_cart');
+                        if (saved) this.cart = JSON.parse(saved);
+                    } catch (e) {
+                        this.cart = [];
+                    }
+                },
+                get cartItemsCount() {
+                    return this.cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+                },
+                get cartTotal() {
+                    return this.cart.reduce((sum, item) => sum + ((item.framePrice + (item.lensPrice || 0)) * item.quantity), 0);
+                },
+                addToCart(item) {
+                    this.cart.push(item);
+                    this.saveCart();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Đã thêm vào giỏ hàng!',
+                        text: `${item.frameName} đã sẵn sàng trong giỏ.`,
+                        showCancelButton: true,
+                        confirmButtonColor: '#f59e0b',
+                        cancelButtonColor: '#334155',
+                        confirmButtonText: 'Xem giỏ hàng',
+                        cancelButtonText: 'Mua tiếp'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = '/cart';
+                        }
+                    });
+                },
+                removeFromCart(index) {
+                    this.cart.splice(index, 1);
+                    this.saveCart();
+                },
+                clearCart() {
+                    this.cart = [];
+                    this.saveCart();
+                },
+                saveCart() {
+                    localStorage.setItem('opti_cart', JSON.stringify(this.cart));
+                }
+            }
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

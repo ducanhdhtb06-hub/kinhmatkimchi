@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6" x-data="checkoutApp()">
+
+    <!-- Header -->
+    <div class="border-b border-slate-800 pb-4">
+        <h1 class="text-2xl sm:text-3xl font-black text-white">Xác Nhận Đơn Hàng & Thanh Toán</h1>
+        <p class="text-xs text-slate-400 mt-1">Vui lòng điền thông tin người nhận để chuyên viên quang học Kính Mắt Kim Chi liên hệ và tiến hành gia công tròng.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Customer & Delivery Form -->
+        <div class="lg:col-span-2 space-y-5">
+            <div class="bg-slate-900/90 rounded-3xl border border-slate-800 p-6 shadow-xl space-y-4">
+                <h3 class="font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-3">
+                    <i class="fa-solid fa-address-card text-amber-400"></i> 1. Thông Tin Nhận Hàng
+                </h3>
+
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Họ và tên người nhận *</label>
+                        <input type="text" x-model="form.customer_name" placeholder="Ví dụ: Nguyễn Văn A" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-semibold text-slate-300 mb-1">Số điện thoại *</label>
+                            <input type="text" x-model="form.phone" placeholder="0988..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-300 mb-1">Email (Nhận thông báo đơn)</label>
+                            <input type="email" x-model="form.email" placeholder="email@example.com" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Địa chỉ giao hàng chi tiết *</label>
+                        <input type="text" x-model="form.shipping_address" placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/TP" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Ghi chú cho kỹ thuật viên mài kính / Shipper</label>
+                        <input type="text" x-model="form.notes" placeholder="Ví dụ: Vát mỏng cạnh tròng kính, giao buổi chiều..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Method -->
+            <div class="bg-slate-900/90 rounded-3xl border border-slate-800 p-6 shadow-xl space-y-4">
+                <h3 class="font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-3">
+                    <i class="fa-solid fa-credit-card text-amber-400"></i> 2. Phương Thức Thanh Toán
+                </h3>
+
+                <div class="space-y-3 text-xs">
+                    <label class="p-4 rounded-2xl border bg-slate-950 cursor-pointer flex items-center justify-between transition"
+                           :class="form.payment_method === 'QR' ? 'border-amber-400 bg-amber-500/10 shadow-lg shadow-amber-500/10' : 'border-slate-800 hover:border-slate-700'">
+                        <div class="flex items-center gap-3">
+                            <input type="radio" value="QR" x-model="form.payment_method" class="text-amber-500">
+                            <div>
+                                <div class="font-bold text-white text-sm flex items-center gap-2">
+                                    Chuyển khoản VietQR Tự Động (Khuyên dùng)
+                                    <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Tự động duyệt tiền</span>
+                                </div>
+                                <div class="text-[11px] text-slate-400 mt-0.5">Quét mã QR qua app ngân hàng, hệ thống tự động xác nhận sau 3 giây</div>
+                            </div>
+                        </div>
+                        <div class="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center text-xl">
+                            <i class="fa-solid fa-qrcode"></i>
+                        </div>
+                    </label>
+
+                    <label class="p-4 rounded-2xl border bg-slate-950 cursor-pointer flex items-center justify-between transition"
+                           :class="form.payment_method === 'COD' ? 'border-amber-400 bg-amber-500/10' : 'border-slate-800 hover:border-slate-700'">
+                        <div class="flex items-center gap-3">
+                            <input type="radio" value="COD" x-model="form.payment_method" class="text-amber-500">
+                            <div>
+                                <div class="font-bold text-white text-sm">Thanh toán khi nhận hàng (COD)</div>
+                                <div class="text-[11px] text-slate-400 mt-0.5">Được kiểm tra đeo thử kính trước khi trả tiền cho shipper</div>
+                            </div>
+                        </div>
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl">
+                            <i class="fa-solid fa-truck-fast"></i>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Summary Side -->
+        <div class="bg-slate-900/90 rounded-3xl border border-slate-800 p-6 shadow-xl space-y-5 h-fit">
+            <h3 class="font-black text-base text-white border-b border-slate-800 pb-3">Chi Tiết Đơn Hàng</h3>
+
+            <div class="space-y-3 max-h-60 overflow-y-auto pr-1">
+                <template x-for="(item, index) in cart" :key="index">
+                    <div class="text-xs space-y-1 pb-3 border-b border-slate-800/60">
+                        <div class="font-bold text-white flex justify-between">
+                            <span x-text="item.frameName"></span>
+                            <span class="text-amber-400" x-text="formatCurrency(item.framePrice)"></span>
+                        </div>
+                        <div class="text-[11px] text-slate-400" x-text="item.lensName"></div>
+                    </div>
+                </template>
+            </div>
+
+            <div class="pt-2 flex items-baseline justify-between border-t border-slate-800">
+                <span class="font-bold text-white text-sm">Tổng thanh toán:</span>
+                <span class="text-2xl font-black text-amber-400" x-text="formatCurrency(cartTotal)"></span>
+            </div>
+
+            <button @click="submitOrder()" :disabled="isSubmitting" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 disabled:opacity-50 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/25 transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-check" x-show="!isSubmitting"></i>
+                <i class="fa-solid fa-spinner fa-spin" x-show="isSubmitting"></i>
+                <span x-text="isSubmitting ? 'Đang tạo đơn...' : (form.payment_method === 'QR' ? 'Tiếp Tục Thanh Toán VietQR' : 'Hoàn Tất Đặt Hàng')"></span>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- ================= VIETQR MODAL AUTO PAYMENT POPUP ================= -->
+    <div x-show="showQRModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md" style="display: none;">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 text-center relative"
+             @click.outside="showQRModal = false">
+            
+            <!-- Header -->
+            <div class="space-y-1">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    Cổng Thanh Toán VietQR Tự Động
+                </div>
+                <h3 class="text-lg font-black text-white">Quét Mã QR Để Thanh Toán</h3>
+                <p class="text-xs text-slate-400">Mở app Ngân hàng (MB, VCB, Techcombank...) hoặc MoMo quét mã dưới đây:</p>
+            </div>
+
+            <!-- Dynamic QR Code Card -->
+            <div class="bg-white p-4 rounded-2xl shadow-xl inline-block border-4 border-amber-400/50">
+                <img :src="qrData.vietqr_url" alt="VietQR" class="w-56 h-56 mx-auto object-contain">
+            </div>
+
+            <!-- Payment Details Box -->
+            <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-xs text-left space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Ngân hàng thụ hưởng:</span>
+                    <strong class="text-white" x-text="qrData.bank_name"></strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Số tài khoản (STK):</span>
+                    <strong class="text-amber-400 font-mono text-sm" x-text="qrData.account_number"></strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Chủ tài khoản:</span>
+                    <strong class="text-white" x-text="qrData.account_name"></strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Số tiền:</span>
+                    <strong class="text-emerald-400 font-black text-base" x-text="formatCurrency(qrData.total_amount)"></strong>
+                </div>
+                <div class="flex justify-between items-center pt-1 border-t border-slate-800">
+                    <span class="text-slate-400">Nội dung chuyển:</span>
+                    <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono font-bold" x-text="qrData.transfer_content"></span>
+                </div>
+            </div>
+
+            <!-- Live Status Animation -->
+            <div class="flex items-center justify-center gap-2 text-xs text-slate-400 font-medium">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-bounce"></span>
+                <span>Hệ thống đang tự động lắng nghe giao dịch chuyển tiền...</span>
+            </div>
+
+            <!-- Simulator Button for One-Click Testing -->
+            <div class="pt-2 border-t border-slate-800 space-y-2">
+                <button @click="simulateTransfer()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-bolt text-amber-400"></i>
+                    <span>Bấm vào đây để Giả Lập Nạp Tiền Thành Công (Test Webhook)</span>
+                </button>
+                <button @click="showQRModal = false" class="text-xs text-slate-500 hover:text-slate-300 transition">
+                    Đóng cửa sổ (Tiếp tục thanh toán sau)
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function checkoutApp() {
+        return {
+            isSubmitting: false,
+            showQRModal: false,
+            pollTimer: null,
+            form: {
+                customer_name: '{{ current_user.full_name if current_user else "" }}',
+                phone: '{{ current_user.phone if current_user else "" }}',
+                email: '{{ current_user.email if current_user else "" }}',
+                shipping_address: '',
+                payment_method: 'QR',
+                notes: ''
+            },
+            qrData: {
+                order_code: '',
+                total_amount: 0,
+                bank_name: '',
+                account_number: '',
+                account_name: '',
+                transfer_content: '',
+                vietqr_url: ''
+            },
+
+            formatCurrency(val) {
+                return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
+            },
+
+            async submitOrder() {
+                const globalCart = Alpine.$data(document.body);
+                const cart = globalCart ? globalCart.cart : [];
+
+                if (!cart || cart.length === 0) {
+                    Swal.fire('Giỏ hàng trống', 'Vui lòng chọn kính trước khi thanh toán', 'warning');
+                    return;
+                }
+
+                if (!this.form.customer_name.trim()) {
+                    Swal.fire('Thiếu thông tin', 'Vui lòng nhập họ tên người nhận', 'warning');
+                    return;
+                }
+                if (!this.form.phone.trim()) {
+                    Swal.fire('Thiếu thông tin', 'Vui lòng nhập số điện thoại liên hệ', 'warning');
+                    return;
+                }
+                if (!this.form.shipping_address.trim()) {
+                    Swal.fire('Thiếu thông tin', 'Vui lòng nhập địa chỉ nhận hàng', 'warning');
+                    return;
+                }
+
+                this.isSubmitting = true;
+
+                const appliedVoucher = JSON.parse(localStorage.getItem('kimchi_applied_voucher') || 'null');
+                const voucherCode = appliedVoucher ? appliedVoucher.voucher_code : null;
+
+                const payload = {
+                    user_id: {{ current_user.id if current_user else 'null' }},
+                    customer_name: this.form.customer_name,
+                    phone: this.form.phone,
+                    email: this.form.email,
+                    shipping_address: this.form.shipping_address,
+                    payment_method: this.form.payment_method === 'QR' ? 'Chuyển khoản QR' : 'COD',
+                    voucher_code: voucherCode,
+                    notes: this.form.notes,
+                    items: cart.map(item => ({
+                        frame_id: item.frameId,
+                        lens_id: item.lensId,
+                        quantity: item.quantity || 1,
+                        right_sph: Number(item.right_sph) || 0,
+                        right_cyl: Number(item.right_cyl) || 0,
+                        right_axis: Number(item.right_axis) || 0,
+                        left_sph: Number(item.left_sph) || 0,
+                        left_cyl: Number(item.left_cyl) || 0,
+                        left_axis: Number(item.left_axis) || 0,
+                        pd: Number(item.pd) || 62.5,
+                        prescription_image_url: item.prescriptionImageUrl || '',
+                        notes: ''
+                    }))
+                };
+
+                try {
+                    const res = await fetch('/api/orders', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await res.json();
+                    this.isSubmitting = false;
+
+                    if (res.ok) {
+                        // Clear cart
+                        if (globalCart && globalCart.clearCart) {
+                            globalCart.clearCart();
+                        }
+
+                        if (this.form.payment_method === 'QR') {
+                            // Fetch QR Details & Open Auto-Payment Popup
+                            const qrRes = await fetch(`/api/payment/qr-info/${data.order_code}`);
+                            this.qrData = await qrRes.json();
+                            this.showQRModal = true;
+                            this.startPaymentPolling(data.order_code);
+                        } else {
+                            window.location.href = `/orders/success/${data.order_code}`;
+                        }
+                    } else {
+                        Swal.fire('Lỗi', data.detail || 'Không thể tạo đơn hàng', 'error');
+                    }
+                } catch (e) {
+                    this.isSubmitting = false;
+                    Swal.fire('Lỗi kết nối', 'Không thể gửi đơn hàng đến máy chủ', 'error');
+                }
+            },
+
+            startPaymentPolling(orderCode) {
+                if (this.pollTimer) clearInterval(this.pollTimer);
+                
+                this.pollTimer = setInterval(async () => {
+                    try {
+                        const res = await fetch(`/api/orders/${orderCode}`);
+                        if (res.ok) {
+                            const order = await res.json();
+                            if (order.payment_status === 'Đã thanh toán') {
+                                clearInterval(this.pollTimer);
+                                this.showQRModal = false;
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Thanh Toán Thành Công! 🎉',
+                                    text: `Hệ thống đã tự động ghi nhận ${this.formatCurrency(order.total_amount)} cho đơn hàng #${orderCode}.`,
+                                    confirmButtonColor: '#f59e0b',
+                                    confirmButtonText: 'Xem đơn hàng'
+                                }).then(() => {
+                                    window.location.href = `/orders/success/${orderCode}`;
+                                });
+                            }
+                        }
+                    } catch (e) {}
+                }, 2000);
+            },
+
+            async simulateTransfer() {
+                try {
+                    const res = await fetch('/api/payment/simulate-transfer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            order_code: this.qrData.order_code,
+                            amount: this.qrData.total_amount
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        // Poller will handle popup
+                    }
+                } catch (e) {
+                    Swal.fire('Lỗi', 'Không thể giả lập thanh toán', 'error');
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}

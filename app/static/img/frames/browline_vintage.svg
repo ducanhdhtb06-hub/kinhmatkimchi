@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280" width="800" height="280">
+  <defs>
+    <linearGradient id="darkBrow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="goldWire" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047" />
+      <stop offset="100%" stop-color="#ca8a04" />
+    </linearGradient>
+  </defs>
+  <!-- Thin Gold Bottom Rim -->
+  <path d="M 80 120 C 80 180, 120 220, 210 220 C 300 220, 340 180, 340 120" fill="none" stroke="url(#goldWire)" stroke-width="6"/>
+  <path d="M 720 120 C 720 180, 680 220, 590 220 C 500 220, 460 180, 460 120" fill="none" stroke="url(#goldWire)" stroke-width="6"/>
+
+  <!-- Thick Bold Upper Acetate Brow -->
+  <path d="M 60 70 C 120 40, 240 40, 350 75 L 350 115 C 240 85, 120 85, 75 110 Z" fill="url(#darkBrow)"/>
+  <path d="M 740 70 C 680 40, 560 40, 450 75 L 450 115 C 560 85, 680 85, 725 110 Z" fill="url(#darkBrow)"/>
+
+  <!-- Metal Bridge -->
+  <path d="M 350 90 Q 400 75 450 90" fill="none" stroke="url(#goldWire)" stroke-width="12" stroke-linecap="round"/>
+</svg>

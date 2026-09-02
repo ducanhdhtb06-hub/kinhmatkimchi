@@ -1,0 +1,812 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6" x-data="adminApp()" x-init="loadBankSettings(); loadTelegramSettings(); loadVouchers();">
+
+    <!-- Top Admin Status Bar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md text-xs">
+        <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-slate-400">Đang đăng nhập với quyền:</span>
+            <strong class="text-amber-400 font-bold flex items-center gap-1.5">
+                <i class="fa-solid fa-user-shield"></i> {{ admin_username }}
+            </strong>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button @click="showPasswordModal = true" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold transition flex items-center gap-1.5">
+                <i class="fa-solid fa-key text-amber-400"></i> Đổi mật khẩu
+            </button>
+            <a href="/logout" class="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold transition flex items-center gap-1.5">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+            </a>
+        </div>
+    </div>
+
+    <!-- Header & Action -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-black text-white">Bảng Quản Trị - Kính Mắt Kim Chi</h1>
+            <p class="text-xs text-slate-400 mt-1">Quản lý đơn hàng, thông số khúc xạ tròng kính, danh mục sản phẩm, voucher và cổng thanh toán VietQR tự động.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <button @click="resetSeedData()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition flex items-center gap-2">
+                <i class="fa-solid fa-arrows-rotate"></i> Nạp lại dữ liệu mẫu
+            </button>
+            <button @click="openAddFrameModal()" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition flex items-center gap-2">
+                <i class="fa-solid fa-plus"></i> Thêm gọng mới
+            </button>
+        </div>
+    </div>
+
+    <!-- 4 KPI Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-lg">
+            <div class="text-[11px] font-semibold text-slate-400">Tổng doanh thu</div>
+            <div class="text-xl sm:text-2xl font-black text-amber-400 mt-1" x-text="formatCurrency({{ stats.total_revenue }})"></div>
+            <div class="text-[10px] text-emerald-400 mt-1">Doanh thu đơn hợp lệ</div>
+        </div>
+
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-lg">
+            <div class="text-[11px] font-semibold text-slate-400">Tổng đơn hàng</div>
+            <div class="text-xl sm:text-2xl font-black text-white mt-1">{{ stats.total_orders }}</div>
+            <div class="text-[10px] text-slate-400 mt-1">Toàn thời gian</div>
+        </div>
+
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-lg">
+            <div class="text-[11px] font-semibold text-slate-400">Đơn chờ xử lý / Mài tròng</div>
+            <div class="text-xl sm:text-2xl font-black text-rose-400 mt-1">{{ stats.pending_orders }}</div>
+            <div class="text-[10px] text-amber-400 mt-1">Cần kỹ thuật viên gia công</div>
+        </div>
+
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-lg">
+            <div class="text-[11px] font-semibold text-slate-400">Mẫu gọng kính trong kho</div>
+            <div class="text-xl sm:text-2xl font-black text-teal-400 mt-1">{{ stats.total_frames }}</div>
+            <div class="text-[10px] text-slate-400 mt-1">Đang kích hoạt bán</div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
+        <button @click="currentTab = 'orders'" :class="currentTab === 'orders' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'text-slate-400 hover:text-white border-transparent'" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 flex-shrink-0">
+            <i class="fa-solid fa-file-invoice"></i> Danh Sách Đơn Hàng ({{ orders|length }})
+        </button>
+        <button @click="currentTab = 'frames'" :class="currentTab === 'frames' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'text-slate-400 hover:text-white border-transparent'" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 flex-shrink-0">
+            <i class="fa-solid fa-glasses"></i> Quản Lý Gọng Kính ({{ frames|length }})
+        </button>
+        <button @click="currentTab = 'vouchers'" :class="currentTab === 'vouchers' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'text-slate-400 hover:text-white border-transparent'" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 flex-shrink-0">
+            <i class="fa-solid fa-ticket text-amber-400"></i> Quản Lý Voucher (🎟️)
+        </button>
+        <button @click="currentTab = 'bank'" :class="currentTab === 'bank' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'text-slate-400 hover:text-white border-transparent'" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 flex-shrink-0">
+            <i class="fa-solid fa-qrcode text-emerald-400"></i> Cài Đặt STK & VietQR 💳
+        </button>
+        <button @click="currentTab = 'telegram'" :class="currentTab === 'telegram' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'text-slate-400 hover:text-white border-transparent'" class="px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-2 flex-shrink-0">
+            <i class="fa-solid fa-paper-plane text-sky-400"></i> Telegram Bot Báo Đơn (🔔)
+        </button>
+    </div>
+
+    <!-- TAB 1: ORDERS LIST -->
+    <div x-show="currentTab === 'orders'" class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-800 bg-slate-950/70 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        <th class="py-3 px-4">Mã Đơn</th>
+                        <th class="py-3 px-4">Khách Hàng</th>
+                        <th class="py-3 px-4">Sản Phẩm & Tròng Kính</th>
+                        <th class="py-3 px-4">Thông Số Khúc Xạ</th>
+                        <th class="py-3 px-4 text-center">Tổng Tiền</th>
+                        <th class="py-3 px-4 text-center">Thanh Toán</th>
+                        <th class="py-3 px-4 text-center">Trạng Thái Đơn</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800 text-xs">
+                    {% for ord in orders %}
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="py-3.5 px-4 font-mono font-bold text-amber-400">
+                                #{{ ord.order_code }}
+                                <div class="text-[10px] text-slate-500 font-sans mt-0.5">{{ ord.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
+                            </td>
+
+                            <td class="py-3.5 px-4 space-y-0.5">
+                                <div class="font-bold text-white">{{ ord.customer_name }}</div>
+                                <div class="text-[11px] text-slate-400">{{ ord.phone }}</div>
+                                <div class="text-[10px] text-slate-500 truncate max-w-xs" title="{{ ord.shipping_address }}">{{ ord.shipping_address }}</div>
+                            </td>
+
+                            <td class="py-3.5 px-4 space-y-1.5">
+                                {% for it in ord.items %}
+                                    <div class="p-2 rounded-lg bg-slate-950/80 border border-slate-800">
+                                        <div class="font-semibold text-white">{{ it.frame.name if it.frame else 'Gọng Kính' }} (x{{ it.quantity }})</div>
+                                        <div class="text-[10px] text-amber-400/90">{{ it.lens.name if it.lens else 'Không cắt tròng' }}</div>
+                                    </div>
+                                {% endfor %}
+                            </td>
+
+                            <td class="py-3.5 px-4 space-y-1 text-[11px]">
+                                {% for it in ord.items %}
+                                    <div class="space-y-0.5">
+                                        <div><strong class="text-slate-400">Mắt Phải (OD):</strong> SPH {{ "{:+.2f}".format(it.right_sph) }} | CYL {{ "{:+.2f}".format(it.right_cyl) }} | Trục {{ it.right_axis }}°</div>
+                                        <div><strong class="text-slate-400">Mắt Trái (OS):</strong> SPH {{ "{:+.2f}".format(it.left_sph) }} | CYL {{ "{:+.2f}".format(it.left_cyl) }} | Trục {{ it.left_axis }}°</div>
+                                        <div class="text-teal-400 font-bold">PD: {{ it.pd }} mm</div>
+                                        {% if it.prescription_image_url %}
+                                            <a href="{{ it.prescription_image_url }}" target="_blank" class="inline-block text-[10px] text-amber-400 underline font-semibold mt-0.5">
+                                                📄 Xem ảnh đơn kính gốc
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </td>
+
+                            <td class="py-3.5 px-4 text-center font-black text-amber-400 text-sm">
+                                {{ "{:,.0f}".format(ord.total_amount) }}đ
+                                <div class="text-[10px] text-slate-500 font-normal">{{ ord.payment_method }}</div>
+                                {% if ord.voucher_code %}
+                                    <div class="text-[9px] text-emerald-400 font-mono">🎟️ {{ ord.voucher_code }}</div>
+                                {% endif %}
+                            </td>
+
+                            <td class="py-3.5 px-4 text-center">
+                                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold inline-block"
+                                      :class="'{{ ord.payment_status }}' === 'Đã thanh toán' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'">
+                                    {{ ord.payment_status }}
+                                </span>
+                            </td>
+
+                            <td class="py-3.5 px-4 text-center">
+                                <select onchange="updateOrderStatus({{ ord.id }}, this.value)" 
+                                        class="bg-slate-950 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1.5 focus:border-amber-400">
+                                    <option value="Đang xử lý" {% if ord.order_status == 'Đang xử lý' %}selected{% endif %}>Đang xử lý</option>
+                                    <option value="Đang mài tròng" {% if ord.order_status == 'Đang mài tròng' %}selected{% endif %}>Đang mài tròng</option>
+                                    <option value="Đang giao" {% if ord.order_status == 'Đang giao' %}selected{% endif %}>Đang giao</option>
+                                    <option value="Hoàn tất" {% if ord.order_status == 'Hoàn tất' %}selected{% endif %}>Hoàn tất</option>
+                                    <option value="Đã hủy" {% if ord.order_status == 'Đã hủy' %}selected{% endif %}>Đã hủy</option>
+                                </select>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 2: FRAMES MANAGEMENT -->
+    <div x-show="currentTab === 'frames'" class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden shadow-xl" style="display: none;">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-800 bg-slate-950/70 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        <th class="py-3 px-4">Gọng Kính</th>
+                        <th class="py-3 px-4 text-center">Dáng Kính</th>
+                        <th class="py-3 px-4 text-center">Chất Liệu</th>
+                        <th class="py-3 px-4 text-center">Kích Thước</th>
+                        <th class="py-3 px-4 text-center">Giá Bán</th>
+                        <th class="py-3 px-4 text-center">Tồn Kho</th>
+                        <th class="py-3 px-4 text-right">Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800 text-xs">
+                    {% for f in frames %}
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="py-3.5 px-4 flex items-center gap-3">
+                                <img src="{{ f.image_url }}" alt="{{ f.name }}" class="w-12 h-12 object-cover rounded-lg bg-slate-950 border border-slate-800 flex-shrink-0">
+                                <div>
+                                    <div class="font-bold text-white">{{ f.name }}</div>
+                                    <div class="text-[10px] text-slate-400">SKU: {{ f.sku }}</div>
+                                </div>
+                            </td>
+
+                            <td class="py-3.5 px-4 text-center text-slate-300 font-medium">{{ f.shape }}</td>
+                            <td class="py-3.5 px-4 text-center text-slate-300">{{ f.material }}</td>
+                            <td class="py-3.5 px-4 text-center text-slate-400">{{ f.eye_size }}-{{ f.bridge_size }}-{{ f.temple_size }}</td>
+                            <td class="py-3.5 px-4 text-center font-bold text-amber-400">{{ "{:,.0f}".format(f.price) }}đ</td>
+                            <td class="py-3.5 px-4 text-center font-bold text-white">{{ f.stock }}</td>
+                            <td class="py-3.5 px-4 text-right">
+                                <button onclick="deleteFrameProduct({{ f.id }}, '{{ f.name }}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition" title="Xóa">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 3: VOUCHERS MANAGEMENT -->
+    <div x-show="currentTab === 'vouchers'" class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl space-y-5" style="display: none;">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+                <h3 class="font-bold text-base text-white flex items-center gap-2">
+                    <i class="fa-solid fa-ticket text-amber-400"></i> Danh Sách Mã Giảm Giá (Vouchers)
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Tạo các chương trình khuyến mãi, giảm giá % hoặc trừ tiền cố định.</p>
+            </div>
+            <button @click="showAddVoucherModal = true" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow transition flex items-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> Thêm Voucher Mới
+            </button>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr class="border-b border-slate-800 bg-slate-950/70 text-[11px] font-bold text-slate-400 uppercase">
+                        <th class="py-3 px-4">Mã Code</th>
+                        <th class="py-3 px-4">Tên Chương Trình</th>
+                        <th class="py-3 px-4 text-center">Loại Giảm</th>
+                        <th class="py-3 px-4 text-center">Giá Trị</th>
+                        <th class="py-3 px-4 text-center">Đơn Tối Thiểu</th>
+                        <th class="py-3 px-4 text-center">Đã Dùng</th>
+                        <th class="py-3 px-4 text-right">Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    <template x-for="v in vouchersList" :key="v.id">
+                        <tr class="hover:bg-slate-800/40">
+                            <td class="py-3 px-4 font-mono font-bold text-amber-400" x-text="v.code"></td>
+                            <td class="py-3 px-4 text-white font-medium" x-text="v.name"></td>
+                            <td class="py-3 px-4 text-center">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                      :class="v.discount_type === 'percent' ? 'bg-sky-500/20 text-sky-400' : 'bg-emerald-500/20 text-emerald-400'"
+                                      x-text="v.discount_type === 'percent' ? 'Phần trăm (%)' : 'Số tiền cố định'"></span>
+                            </td>
+                            <td class="py-3 px-4 text-center font-bold text-amber-400" x-text="v.discount_type === 'percent' ? (v.discount_value + '%') : formatCurrency(v.discount_value)"></td>
+                            <td class="py-3 px-4 text-center text-slate-300" x-text="formatCurrency(v.min_order_amount)"></td>
+                            <td class="py-3 px-4 text-center font-bold text-white" x-text="v.used_count + ' / ' + v.usage_limit"></td>
+                            <td class="py-3 px-4 text-right">
+                                <button @click="deleteVoucher(v.id)" class="p-1.5 text-slate-400 hover:text-rose-400" title="Xóa"><i class="fa-solid fa-trash"></i></button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 4: BANK CONFIGURATION -->
+    <div x-show="currentTab === 'bank'" class="grid grid-cols-1 lg:grid-cols-2 gap-6" style="display: none;">
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-base text-white flex items-center gap-2">
+                    <i class="fa-solid fa-building-columns text-amber-400"></i> Cài Đặt Tài Khoản Nhận Tiền
+                </h3>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Chọn Ngân Hàng *</label>
+                    <select x-model="bankConfig.bank_id" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
+                        <option value="MB">MBBank (Ngân hàng Quân Đội)</option>
+                        <option value="VCB">Vietcombank (Ngoại Thương Việt Nam)</option>
+                        <option value="TCB">Techcombank (Kỹ Thương Việt Nam)</option>
+                        <option value="ICB">VietinBank (Công Thương Việt Nam)</option>
+                        <option value="BIDV">BIDV (Đầu tư & Phát triển Việt Nam)</option>
+                        <option value="ACB">ACB (Á Châu)</option>
+                        <option value="VPB">VPBank (Việt Nam Thịnh Vượng)</option>
+                        <option value="TPB">TPBank (Tiên Phong)</option>
+                        <option value="STB">Sacombank (Sài Gòn Thương Tín)</option>
+                        <option value="MOMO">Ví MoMo</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Số Tài Khoản (STK) *</label>
+                    <input type="text" x-model="bankConfig.account_number" placeholder="0988888888" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-400">
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Tên Chủ Tài Khoản *</label>
+                    <input type="text" x-model="bankConfig.account_name" placeholder="NGUYEN VAN A" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold uppercase focus:outline-none focus:border-amber-400">
+                </div>
+
+                <div class="pt-2">
+                    <button @click="saveBankSettings()" :disabled="isSavingBank" class="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg transition">
+                        <span x-text="isSavingBank ? 'Đang lưu...' : 'Lưu Thông Tin Ngân Hàng'"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live QR Preview Card -->
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col items-center justify-center text-center space-y-4">
+            <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Mã QR Xem Trước Thời Gian Thực</span>
+            <div class="bg-white p-3 rounded-2xl shadow-xl border-2 border-amber-400 inline-block">
+                <img :src="`https://img.vietqr.io/image/${bankConfig.bank_id}-${bankConfig.account_number}-compact2.png?amount=500000&addInfo=KCTEST&accountName=${encodeURIComponent(bankConfig.account_name)}`" 
+                     alt="Preview VietQR" class="w-56 h-56 object-contain">
+            </div>
+            <div class="text-xs text-slate-300 space-y-1">
+                <div class="font-bold text-white text-sm" x-text="bankConfig.account_name || 'TÊN CHỦ TÀI KHOẢN'"></div>
+                <div class="text-amber-400 font-mono font-bold" x-text="`STK: ${bankConfig.account_number} (${bankConfig.bank_id})`"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 5: TELEGRAM CONFIGURATION -->
+    <div x-show="currentTab === 'telegram'" class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl space-y-5" style="display: none;">
+        <div class="border-b border-slate-800 pb-3">
+            <h3 class="font-bold text-base text-white flex items-center gap-2">
+                <i class="fa-solid fa-paper-plane text-sky-400"></i> Cấu Hình Telegram Bot Nhận Thông Báo Tức Thì
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Tự động báo tin nhắn về điện thoại của bạn khi có Đơn Hàng Mới hoặc khi Tiền Về VietQR.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs">
+            <div class="space-y-4">
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Telegram Bot Token *</label>
+                    <input type="text" x-model="telegramConfig.bot_token" placeholder="Ví dụ: 123456789:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-sky-400">
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Telegram Chat ID *</label>
+                    <input type="text" x-model="telegramConfig.chat_id" placeholder="Ví dụ: 987654321 hoặc -100123456789" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-sky-400">
+                </div>
+
+                <div class="space-y-2 pt-2">
+                    <label class="flex items-center gap-2.5 cursor-pointer">
+                        <input type="checkbox" x-model="telegramConfig.is_active" class="rounded text-sky-500">
+                        <span class="font-bold text-white">Kích hoạt thông báo tự động</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 cursor-pointer">
+                        <input type="checkbox" x-model="telegramConfig.notify_on_order" class="rounded text-sky-500">
+                        <span class="text-slate-300">Báo tin khi có khách đặt đơn hàng mới</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 cursor-pointer">
+                        <input type="checkbox" x-model="telegramConfig.notify_on_payment" class="rounded text-sky-500">
+                        <span class="text-slate-300">Báo tin khi nhận được tiền chuyển khoản VietQR</span>
+                    </label>
+                </div>
+
+                <div class="flex items-center gap-3 pt-2">
+                    <button @click="saveTelegramSettings()" class="px-5 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs shadow-lg transition">
+                        Lưu Cấu Hình Telegram
+                    </button>
+                    <button @click="testTelegram()" class="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-bell"></i> Gửi Tin Test
+                    </button>
+                </div>
+            </div>
+
+            <!-- Guide Box -->
+            <div class="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 leading-relaxed">
+                <div class="font-bold text-white flex items-center gap-1.5 text-sm">
+                    <i class="fa-solid fa-circle-question text-sky-400"></i> Hướng dẫn lấy Token & Chat ID (1 phút)
+                </div>
+                <ol class="list-decimal pl-4 space-y-1.5 text-slate-400 text-[11px]">
+                    <li>Mở app Telegram, tìm kiếm <strong>@BotFather</strong> $\rightarrow$ Gõ lệnh <code>/newbot</code> để tạo bot và copy <strong>Bot Token</strong>.</li>
+                    <li>Tìm bot <strong>@userinfobot</strong> trong Telegram $\rightarrow$ Bấm Start để lấy số <strong>Id (Chat ID)</strong> của bạn.</li>
+                    <li>Gửi bất kỳ 1 tin nhắn vào bot vừa tạo, sau đó điền Token & Chat ID vào đây và bấm <strong>"Gửi Tin Test"</strong>!</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Thêm Voucher Mới -->
+    <div x-show="showAddVoucherModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" style="display: none;">
+        <div @click.away="showAddVoucherModal = false" class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-white">Thêm Mã Giảm Giá Mới</h3>
+                <button @click="showAddVoucherModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Mã Code (In hoa không dấu) *</label>
+                    <input type="text" x-model="newVoucher.code" placeholder="VÍ DỤ: KIMCHI100K" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-amber-400 font-mono font-bold uppercase">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Tên mô tả chương trình *</label>
+                    <input type="text" x-model="newVoucher.name" placeholder="Giảm 100.000đ cho đơn đầu tiên" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Loại giảm giá</label>
+                        <select x-model="newVoucher.discount_type" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                            <option value="fixed">Số tiền cố định (VNĐ)</option>
+                            <option value="percent">Phần trăm (%)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Giá trị giảm *</label>
+                        <input type="number" x-model.number="newVoucher.discount_value" placeholder="100000" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Đơn tối thiểu (VNĐ)</label>
+                        <input type="number" x-model.number="newVoucher.min_order_amount" placeholder="500000" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Số lượt dùng tối đa</label>
+                        <input type="number" x-model.number="newVoucher.usage_limit" placeholder="100" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button @click="showAddVoucherModal = false" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 bg-slate-800">Hủy</button>
+                <button @click="submitNewVoucher()" class="px-5 py-2 rounded-xl text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400">Tạo Voucher</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Đổi Mật Khẩu -->
+    <div x-show="showPasswordModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" style="display: none;">
+        <div @click.away="showPasswordModal = false" class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-key text-amber-400"></i> Đổi Mật Khẩu Quản Trị
+                </h3>
+                <button @click="showPasswordModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Mật khẩu hiện tại *</label>
+                    <input type="password" x-model="passwordForm.old_password" placeholder="••••••••" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Mật khẩu mới *</label>
+                    <input type="password" x-model="passwordForm.new_password" placeholder="••••••••" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Xác nhận mật khẩu mới *</label>
+                    <input type="password" x-model="passwordForm.confirm_password" placeholder="••••••••" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button @click="showPasswordModal = false" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 bg-slate-800">Hủy</button>
+                <button @click="submitChangePassword()" class="px-5 py-2 rounded-xl text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400">Cập Nhật</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Thêm Gọng Kính Mới -->
+    <div x-show="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" style="display: none;">
+        <div @click.away="showAddModal = false" class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl p-6 sm:p-8 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-white">Thêm Mẫu Gọng Kính Mới</h3>
+                <button @click="showAddModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Tên gọng kính *</label>
+                    <input type="text" x-model="newFrame.name" placeholder="Ví dụ: Gọng Titan Classic 08" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Mã SKU *</label>
+                        <input type="text" x-model="newFrame.sku" placeholder="OPT-FRAME-08" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white uppercase">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Giá bán (VNĐ) *</label>
+                        <input type="number" x-model.number="newFrame.price" placeholder="750000" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Kiểu dáng</label>
+                        <select x-model="newFrame.shape" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                            <option value="Vuông">Vuông</option>
+                            <option value="Tròn">Tròn</option>
+                            <option value="Aviator">Aviator</option>
+                            <option value="Mắt mèo">Mắt mèo</option>
+                            <option value="Browline">Browline</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Chất liệu</label>
+                        <select x-model="newFrame.material" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                            <option value="Titanium">Titanium</option>
+                            <option value="Acetate">Acetate</option>
+                            <option value="Kim loại">Kim loại</option>
+                            <option value="Nhựa TR90">Nhựa TR90</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Giới tính</label>
+                        <select x-model="newFrame.gender" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                            <option value="Unisex">Unisex</option>
+                            <option value="Nam">Nam</option>
+                            <option value="Nữ">Nữ</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Ảnh sản phẩm gọng kính *</label>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2">
+                            <input type="text" x-model="newFrame.image_url" placeholder="Nhập URL ảnh hoặc tải từ máy tính..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white">
+                            <label class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold text-xs border border-slate-700 cursor-pointer flex-shrink-0 transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Tải ảnh từ máy
+                                <input type="file" accept="image/*" @change="uploadFrameImage($event)" class="hidden">
+                            </label>
+                        </div>
+                        <div x-show="newFrame.image_url" class="flex items-center gap-3 p-2 rounded-xl bg-slate-950 border border-slate-800">
+                            <img :src="newFrame.image_url" class="w-12 h-12 object-contain rounded-lg bg-slate-900 border border-slate-700">
+                            <div class="text-[11px] text-slate-400 truncate flex-1" x-text="newFrame.image_url"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button @click="showAddModal = false" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 bg-slate-800">Hủy</button>
+                <button @click="submitNewFrame()" class="px-5 py-2 rounded-xl text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400">Lưu Sản Phẩm</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function adminApp() {
+        return {
+            currentTab: 'orders',
+            showAddModal: false,
+            showPasswordModal: false,
+            showAddVoucherModal: false,
+            isSavingBank: false,
+            vouchersList: [],
+            passwordForm: { old_password: '', new_password: '', confirm_password: '' },
+            bankConfig: { bank_id: 'MB', bank_name: 'MBBank', account_number: '0988888888', account_name: 'KINH MAT KIM CHI' },
+            telegramConfig: { bot_token: '', chat_id: '', is_active: false, notify_on_order: true, notify_on_payment: true },
+            newVoucher: { code: '', name: '', discount_type: 'fixed', discount_value: 50000, min_order_amount: 500000, max_discount: 200000, usage_limit: 100 },
+            newFrame: {
+                name: '', sku: '', price: 650000, shape: 'Vuông', material: 'Acetate', gender: 'Unisex',
+                suitable_face_shapes: 'Tròn,Trái xoan',
+                image_url: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=600&auto=format&fit=crop&q=80',
+                tryon_overlay_url: '/static/img/frames/square_black.svg',
+                description: 'Gọng kính cao cấp thiết kế hiện đại.'
+            },
+
+            formatCurrency(val) {
+                return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
+            },
+
+            openAddFrameModal() { this.showAddModal = true; },
+
+            async loadVouchers() {
+                try {
+                    const res = await fetch('/api/vouchers');
+                    if (res.ok) this.vouchersList = await res.json();
+                } catch (e) {}
+            },
+
+            async submitNewVoucher() {
+                if (!this.newVoucher.code.trim()) {
+                    Swal.fire('Lỗi', 'Vui lòng nhập mã code', 'warning');
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/vouchers', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.newVoucher)
+                    });
+                    if (res.ok) {
+                        this.showAddVoucherModal = false;
+                        this.loadVouchers();
+                        Swal.fire({ icon: 'success', title: 'Đã tạo voucher mới!', timer: 1200, showConfirmButton: false });
+                    } else {
+                        const err = await res.json();
+                        Swal.fire('Lỗi', err.detail || 'Không thể tạo voucher', 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ', 'error');
+                }
+            },
+
+            async deleteVoucher(id) {
+                try {
+                    const res = await fetch(`/api/vouchers/${id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        this.loadVouchers();
+                        Swal.fire({ icon: 'success', title: 'Đã xóa voucher', timer: 1000, showConfirmButton: false });
+                    }
+                } catch (e) {}
+            },
+
+            async loadBankSettings() {
+                try {
+                    const res = await fetch('/api/payment/bank-config');
+                    if (res.ok) this.bankConfig = await res.json();
+                } catch (e) {}
+            },
+
+            async saveBankSettings() {
+                this.isSavingBank = true;
+                try {
+                    const res = await fetch('/api/payment/bank-config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.bankConfig)
+                    });
+                    this.isSavingBank = false;
+                    if (res.ok) {
+                        Swal.fire({ icon: 'success', title: 'Đã lưu!', text: 'Đã cập nhật tài khoản VietQR.', timer: 1200, showConfirmButton: false });
+                    }
+                } catch (e) {
+                    this.isSavingBank = false;
+                    Swal.fire('Lỗi', 'Không thể lưu', 'error');
+                }
+            },
+
+            async loadTelegramSettings() {
+                try {
+                    const res = await fetch('/api/telegram-config');
+                    if (res.ok) this.telegramConfig = await res.json();
+                } catch (e) {}
+            },
+
+            async saveTelegramSettings() {
+                try {
+                    const res = await fetch('/api/telegram-config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.telegramConfig)
+                    });
+                    if (res.ok) {
+                        Swal.fire({ icon: 'success', title: 'Đã lưu cấu hình Telegram!', timer: 1200, showConfirmButton: false });
+                    }
+                } catch (e) {
+                    Swal.fire('Lỗi', 'Không thể lưu Telegram', 'error');
+                }
+            },
+
+            async testTelegram() {
+                try {
+                    const res = await fetch('/api/telegram/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.telegramConfig)
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        Swal.fire({ icon: 'success', title: 'Thành công! 🎉', text: 'Đã gửi tin nhắn test đến Telegram của bạn.' });
+                    } else {
+                        Swal.fire('Lỗi Telegram', data.message || data.detail || 'Không thể gửi tin', 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Lỗi kết nối', 'Không thể kết nối Telegram', 'error');
+                }
+            },
+
+            async submitChangePassword() {
+                if (!this.passwordForm.old_password || !this.passwordForm.new_password) {
+                    Swal.fire('Lỗi', 'Vui lòng nhập mật khẩu', 'warning');
+                    return;
+                }
+                if (this.passwordForm.new_password !== this.passwordForm.confirm_password) {
+                    Swal.fire('Lỗi', 'Mật khẩu xác nhận không khớp', 'warning');
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/admin/change-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: 'admin',
+                            old_password: this.passwordForm.old_password,
+                            new_password: this.passwordForm.new_password
+                        })
+                    });
+                    if (res.ok) {
+                        this.showPasswordModal = false;
+                        Swal.fire({ icon: 'success', title: 'Đã đổi mật khẩu thành công!' });
+                    } else {
+                        const err = await res.json();
+                        Swal.fire('Lỗi', err.detail || 'Không thể đổi mật khẩu', 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ', 'error');
+                }
+            },
+
+            async uploadFrameImage(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                Swal.fire({
+                    title: 'Đang tải ảnh lên...',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                try {
+                    const res = await fetch('/api/upload/image', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        this.newFrame.image_url = data.url;
+                        Swal.fire({ icon: 'success', title: 'Đã tải ảnh lên!', timer: 1200, showConfirmButton: false });
+                    } else {
+                        Swal.fire('Lỗi tải ảnh', data.detail || 'Không thể tải ảnh lên', 'error');
+                    }
+                } catch (err) {
+                    Swal.fire('Lỗi', 'Không thể gửi ảnh lên máy chủ', 'error');
+                }
+            },
+
+            async submitNewFrame() {
+                if (!this.newFrame.name.trim() || !this.newFrame.sku.trim()) {
+                    Swal.fire('Lỗi', 'Vui lòng nhập tên và mã SKU', 'warning');
+                    return;
+                }
+                if (!this.newFrame.image_url.trim()) {
+                    Swal.fire('Lỗi', 'Vui lòng cung cấp ảnh sản phẩm', 'warning');
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/frames', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.newFrame)
+                    });
+                    if (res.ok) {
+                        this.showAddModal = false;
+                        Swal.fire({ icon: 'success', title: 'Đã lưu gọng kính mới!', timer: 1200, showConfirmButton: false }).then(() => location.reload());
+                    } else {
+                        const err = await res.json();
+                        Swal.fire('Lỗi', err.detail || 'Không thể tạo gọng', 'error');
+                    }
+                } catch (e) {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ', 'error');
+                }
+            },
+
+            async resetSeedData() {
+                const confirm = await Swal.fire({
+                    title: 'Khôi phục dữ liệu mẫu?',
+                    text: 'Toàn bộ danh mục, gọng kính và tròng kính mẫu sẽ được nạp lại.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#f59e0b',
+                    confirmButtonText: 'Đồng ý',
+                    cancelButtonText: 'Hủy'
+                });
+                if (confirm.isConfirmed) {
+                    await fetch('/api/system/reset-seed', { method: 'POST' });
+                    location.reload();
+                }
+            }
+        }
+    }
+
+    async function updateOrderStatus(orderId, newStatus) {
+        try {
+            await fetch(`/api/orders/${orderId}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_status: newStatus })
+            });
+            Swal.fire({ icon: 'success', title: 'Đã cập nhật trạng thái đơn!', timer: 1000, showConfirmButton: false });
+        } catch (e) {}
+    }
+
+    async function deleteFrameProduct(frameId, frameName) {
+        const confirm = await Swal.fire({
+            title: `Xóa mẫu ${frameName}?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            confirmButtonText: 'Xóa ngay',
+            cancelButtonText: 'Hủy'
+        });
+        if (confirm.isConfirmed) {
+            await fetch(`/api/frames/${frameId}`, { method: 'DELETE' });
+            location.reload();
+        }
+    }
+</script>
+{% endblock %}

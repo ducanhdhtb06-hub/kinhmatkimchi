@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: optistyle-pro
+    env: python
+    buildCommand: pip install -r requirements.txt && pip install google-generativeai uvicorn
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    plan: free

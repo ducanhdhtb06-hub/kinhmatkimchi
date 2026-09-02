@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6" x-data="{ searchQuery: '', filterType: 'all' }">
+    
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-extrabold text-white">Lịch Sử & Danh Sách Trận Đấu</h1>
+            <p class="text-xs text-slate-400 mt-1">
+                Toàn bộ dữ liệu các trận đấu đã diễn ra, kết quả và thông số cá nhân chi tiết.
+            </p>
+        </div>
+        <a href="/matches/new" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition transform hover:-translate-y-0.5">
+            <i class="fa-solid fa-plus-circle"></i>
+            <span>Cập nhật trận mới</span>
+        </a>
+    </div>
+
+    <!-- Filters & Search -->
+    <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+        <div class="relative w-full sm:w-80">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input type="text" x-model="searchQuery" placeholder="Tìm theo tên đối thủ, sân bóng..." class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <span class="text-xs text-slate-400">Lọc kết quả:</span>
+            <select x-model="filterType" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+                <option value="all">Tất cả trận</option>
+                <option value="win">Trận thắng (W)</option>
+                <option value="draw">Trận hòa (D)</option>
+                <option value="loss">Trận thua (L)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Matches List -->
+    <div class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        {% if matches %}
+            <div class="divide-y divide-slate-800">
+                {% for m in matches %}
+                    <div class="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-800/40 transition match-row"
+                         data-opponent="{{ m.opponent|lower }}"
+                         data-location="{{ m.location|lower }}"
+                         data-result="{{ m.result_status }}"
+                         x-show="(filterType === 'all' || filterType === '{{ m.result_status }}') && (searchQuery === '' || '{{ m.opponent|lower }}'.includes(searchQuery.toLowerCase()) || '{{ m.location|lower }}'.includes(searchQuery.toLowerCase()))">
+                        
+                        <!-- Left: Date & Teams -->
+                        <div class="flex items-start sm:items-center gap-4">
+                            <!-- Date Badge -->
+                            <div class="text-center bg-slate-950 p-3 rounded-2xl border border-slate-800 min-w-[72px] shadow-sm">
+                                <div class="text-sm font-extrabold text-white">{{ m.match_date.strftime("%d") }}</div>
+                                <div class="text-[11px] text-emerald-400 font-semibold uppercase">Th{{ m.match_date.strftime("%m") }}</div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">{{ m.match_time }}</div>
+                            </div>
+
+                            <!-- Teams and Score -->
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-3 flex-wrap">
+                                    <span class="font-extrabold text-base text-white">FC Đội Nhà</span>
+                                    <span class="px-3 py-1 rounded-xl text-sm font-black {% if m.result_status == 'win' %}bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20{% elif m.result_status == 'draw' %}bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20{% else %}bg-rose-500 text-white shadow-md shadow-rose-500/20{% endif %}">
+                                        {{ m.team_score }} - {{ m.opponent_score }}
+                                    </span>
+                                    <span class="font-bold text-base text-slate-200">{{ m.opponent }}</span>
+                                    
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full {% if m.result_status == 'win' %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/30{% elif m.result_status == 'draw' %}bg-amber-500/10 text-amber-400 border border-amber-500/30{% else %}bg-rose-500/10 text-rose-400 border border-rose-500/30{% endif %}">
+                                        {{ m.result_text }}
+                                    </span>
+                                </div>
+
+                                <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                                    <span><i class="fa-solid fa-location-dot text-emerald-400 mr-1"></i> {{ m.location }}</span>
+                                    <span>•</span>
+                                    <span>{{ m.match_type }}</span>
+                                    <span>•</span>
+                                    <span><i class="fa-solid fa-users text-slate-400 mr-1"></i> {{ m.stats|length }} cầu thủ tham gia</span>
+                                    {% if m.mvp_player %}
+                                        <span>•</span>
+                                        <span class="text-amber-400 font-semibold flex items-center gap-1">
+                                            ⭐ MVP: {{ m.mvp_player.name }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Actions -->
+                        <div class="flex items-center gap-2.5 self-end lg:self-center">
+                            <a href="/matches/{{ m.id }}" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-emerald-500 hover:text-slate-950 border border-slate-700 transition flex items-center gap-1.5 shadow">
+                                <i class="fa-solid fa-chart-pie"></i> Xem chi tiết
+                            </a>
+                            <a href="/matches/{{ m.id }}/edit" class="p-2 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700/60 transition" title="Chỉnh sửa">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </a>
+                            <button onclick="deleteMatch({{ m.id }}, '{{ m.opponent }}')" class="p-2 rounded-xl text-xs text-rose-400 hover:text-white hover:bg-rose-600 border border-rose-500/30 transition" title="Xóa trận">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-16">
+                <div class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 text-2xl mx-auto mb-3">
+                    <i class="fa-solid fa-futbol"></i>
+                </div>
+                <h3 class="text-sm font-semibold text-slate-300">Chưa có trận đấu nào</h3>
+                <p class="text-xs text-slate-400 mt-1">Bấm nút bên dưới để ghi nhận trận đấu mới.</p>
+                <div class="mt-4">
+                    <a href="/matches/new" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs">
+                        <i class="fa-solid fa-plus-circle"></i> Thêm trận mới
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function deleteMatch(matchId, opponent) {
+        const confirm = await Swal.fire({
+            title: `Xóa trận vs ${opponent}?`,
+            text: 'Dữ liệu thông số của trận đấu này sẽ bị xóa vĩnh viễn.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Xóa ngay',
+            cancelButtonText: 'Hủy'
+        });
+
+        if (confirm.isConfirmed) {
+            try {
+                const res = await fetch(`/api/matches/${matchId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Đã xóa!',
+                        text: 'Trận đấu đã được gỡ khỏi hệ thống.',
+                        timer: 1200,
+                        showConfirmButton: false
+                    }).then(() => location.reload());
+                } else {
+                    Swal.fire('Lỗi', 'Không thể xóa trận đấu', 'error');
+                }
+            } catch (e) {
+                Swal.fire('Lỗi', 'Không thể kết nối máy chủ', 'error');
+            }
+        }
+    }
+</script>
+{% endblock %}

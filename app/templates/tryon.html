@@ -1,0 +1,768 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6" x-data="tryOnApp()">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <a href="/products" class="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-amber-400 mb-2 transition">
+                <i class="fa-solid fa-arrow-left"></i> Xem danh mục gọng kính
+            </a>
+            <h1 class="text-2xl sm:text-3xl font-black text-white">Phòng Thử Kính AR & Đo Kích Thước Chuẩn Quang Học</h1>
+            <p class="text-xs text-slate-400 mt-1">
+                Tích hợp Khung căn chỉnh cự ly 50 - 60 cm giúp đo chuẩn xác khoảng cách đồng tử (PD) và bề ngang mặt theo mm bất biến theo khoảng cách.
+            </p>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+            <button @click="toggleCamera()" class="px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg transition flex items-center gap-2"
+                    :class="isCameraActive ? 'bg-rose-500 hover:bg-rose-600 text-white' : 'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 text-slate-950'">
+                <i class="fa-solid" :class="isCameraActive ? 'fa-video-slash' : 'fa-camera'"></i>
+                <span x-text="isCameraActive ? 'Tắt Camera' : 'Bật Camera Của Bạn'"></span>
+            </button>
+            <label class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 cursor-pointer flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-upload"></i> Tải ảnh cá nhân
+                <input type="file" accept="image/*" @change="handleImageUpload($event)" class="hidden">
+            </label>
+        </div>
+    </div>
+
+    <!-- Quick Presets Bar -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+        <span class="text-slate-400 font-semibold flex-shrink-0">Thử nhanh trên người mẫu:</span>
+        <button @click="selectSampleModel(0)" class="px-3 py-1.5 rounded-lg border text-slate-200 transition flex-shrink-0 flex items-center gap-1.5"
+                :class="activeModelIndex === 0 ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : 'bg-slate-900 border-slate-800 hover:bg-slate-800'">
+            👩 Mẫu Nữ (Trái xoan)
+        </button>
+        <button @click="selectSampleModel(1)" class="px-3 py-1.5 rounded-lg border text-slate-200 transition flex-shrink-0 flex items-center gap-1.5"
+                :class="activeModelIndex === 1 ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : 'bg-slate-900 border-slate-800 hover:bg-slate-800'">
+            👱‍♀️ Mẫu Nữ (Mặt tròn)
+        </button>
+        <button @click="selectSampleModel(2)" class="px-3 py-1.5 rounded-lg border text-slate-200 transition flex-shrink-0 flex items-center gap-1.5"
+                :class="activeModelIndex === 2 ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : 'bg-slate-900 border-slate-800 hover:bg-slate-800'">
+            👨 Mẫu Nam (Mặt vuông)
+        </button>
+        <button @click="selectSampleModel(3)" class="px-3 py-1.5 rounded-lg border text-slate-200 transition flex-shrink-0 flex items-center gap-1.5"
+                :class="activeModelIndex === 3 ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : 'bg-slate-900 border-slate-800 hover:bg-slate-800'">
+            🧔 Mẫu Nam (Mặt dài)
+        </button>
+    </div>
+
+    <!-- Main AR Studio Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left 2 Cols: Camera / AR Canvas Viewport -->
+        <div class="lg:col-span-2 space-y-4">
+            
+            <!-- Live Distance & Calibration Status Bar -->
+            <div class="bg-slate-900/90 rounded-2xl border border-slate-800 px-4 py-2.5 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-ruler-combined text-amber-400"></i>
+                    <span class="text-slate-300 font-medium">Cự ly camera:</span>
+                    <strong class="text-white" x-text="distanceInfo.distance ? (distanceInfo.distance + ' cm') : '-- cm'"></strong>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="inline-block w-2 h-2 rounded-full"
+                          :class="distanceInfo.status === 'OPTIMAL' ? 'bg-emerald-400 animate-pulse' : (distanceInfo.status === 'TOO_CLOSE' ? 'bg-rose-400' : 'bg-amber-400')"></span>
+                    <span class="font-bold"
+                          :class="distanceInfo.status === 'OPTIMAL' ? 'text-emerald-400' : (distanceInfo.status === 'TOO_CLOSE' ? 'text-rose-400' : 'text-amber-400')"
+                          x-text="distanceInfo.advice"></span>
+                </div>
+            </div>
+
+            <div class="relative bg-slate-950 rounded-3xl border-2 border-slate-800 overflow-hidden shadow-2xl aspect-[4/3] flex items-center justify-center">
+                
+                <!-- Hidden Video Source -->
+                <video id="webcamVideo" playsinline autoplay muted style="position: absolute; opacity: 0; pointer-events: none; z-index: -1; width: 640px; height: 480px;"></video>
+
+                <!-- Render Canvas for Face Mesh & Glasses Overlay -->
+                <canvas id="outputCanvas" class="w-full h-full object-contain bg-slate-950"></canvas>
+
+                <!-- Idle State Placeholder when no camera & no image -->
+                <div x-show="!isCameraActive && activeModelIndex === -1 && !isImageLoaded" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-900/90 backdrop-blur-sm space-y-4">
+                    <div class="w-20 h-20 rounded-3xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center text-3xl shadow-inner">
+                        <i class="fa-solid fa-camera-rotate"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">Sẵn Sàng Thử Kính AR</h3>
+                        <p class="text-xs text-slate-400 max-w-sm mt-1">
+                            Bấm nút bên dưới để bật camera trực tiếp, ngồi cách camera <strong>50 - 60 cm</strong> để hệ thống đo đạc chuẩn xác.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button @click="startCamera()" class="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/25 transition">
+                            <i class="fa-solid fa-camera mr-1.5"></i> Bật Camera Của Bạn
+                        </button>
+                        <button @click="selectSampleModel(0)" class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition">
+                            Xem Mẫu Nữ 👩
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Overlay Indicator Badges -->
+                <div x-show="isCameraActive || activeModelIndex !== -1 || isImageLoaded" class="absolute top-4 left-4 flex items-center gap-2">
+                    <span class="px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur border border-slate-700 text-xs font-bold flex items-center gap-1.5 shadow"
+                          :class="faceAnalysis.isAnalyzed ? 'text-emerald-400' : 'text-amber-400'">
+                        <span class="w-2 h-2 rounded-full animate-pulse" :class="faceAnalysis.isAnalyzed ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                        <span x-text="statusBadge"></span>
+                    </span>
+                    <span x-show="faceAnalysis.isAnalyzed" class="px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur border border-slate-700 text-amber-400 text-xs font-bold shadow" x-text="currentFrame.name"></span>
+                </div>
+
+                <!-- Controls on top right -->
+                <div x-show="isCameraActive || activeModelIndex !== -1" class="absolute top-4 right-4 flex items-center gap-2">
+                    <button @click="toggleCalibrationGuide()" class="px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                            :class="showCalibrationGuide ? 'text-amber-400 border-amber-400/50' : ''">
+                        <i class="fa-solid fa-circle-dot"></i> Khung chuẩn 55cm
+                    </button>
+                    <button @click="toggleLandmarks()" class="px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                            :class="showLandmarks ? 'text-amber-400 border-amber-400/50' : ''">
+                        <i class="fa-solid fa-eye"></i> Định vị mắt
+                    </button>
+                    <button @click="toggleMirror()" x-show="isCameraActive" class="px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold shadow transition">
+                        <i class="fa-solid fa-arrows-left-right"></i> Lật gương
+                    </button>
+                </div>
+
+                <!-- Bottom Floating Snapshot & Compare Bar -->
+                <div x-show="isCameraActive || activeModelIndex !== -1 || isImageLoaded" class="absolute bottom-4 inset-x-4 flex items-center justify-between pointer-events-auto bg-slate-950/80 backdrop-blur-md p-2 rounded-2xl border border-slate-700 shadow-xl">
+                    <button @click="captureSnapshot()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg transition flex items-center gap-2">
+                        <i class="fa-solid fa-camera"></i> Chụp Ảnh Mẫu Này
+                    </button>
+
+                    <div class="flex items-center gap-2">
+                        <button @click="showCompareModal = true" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 transition flex items-center gap-2">
+                            <i class="fa-solid fa-table-cells text-amber-400"></i>
+                            <span>So Sánh Lưới (2x2)</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-slate-950 font-black" x-text="snapshots.length"></span>
+                        </button>
+                        <button x-show="snapshots.length > 0" @click="clearSnapshots()" class="p-2 rounded-xl text-slate-400 hover:text-rose-400 text-xs transition" title="Xóa ảnh chụp">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Frame Selection Carousel -->
+            <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl space-y-3">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="font-bold text-white flex items-center gap-1.5">
+                        <i class="fa-solid fa-glasses text-amber-400"></i> Bấm Chọn Mẫu Gọng Kính Khác (Đổi Kính Tức Thì)
+                    </span>
+                    <span class="text-slate-400">Tự động căn chỉnh lên sống mũi</span>
+                </div>
+
+                <div class="flex items-center gap-3 overflow-x-auto pb-2">
+                    {% for f in frames %}
+                        <div @click="selectFrame({
+                            id: {{ f.id }},
+                            name: '{{ f.name }}',
+                            price: {{ f.price }},
+                            overlayUrl: '{{ f.tryon_overlay_url or '/static/img/frames/square_black.svg' }}',
+                            shape: '{{ f.shape }}',
+                            material: '{{ f.material }}'
+                        })" 
+                        class="p-2.5 rounded-xl border bg-slate-950 cursor-pointer min-w-[135px] text-center transition group flex-shrink-0"
+                        :class="currentFrame.id === {{ f.id }} ? 'border-amber-400 shadow-lg shadow-amber-500/20 bg-slate-900' : 'border-slate-800 hover:border-slate-700'">
+                            <img src="{{ f.tryon_overlay_url or '/static/img/frames/square_black.svg' }}" alt="{{ f.name }}" class="w-20 h-10 object-contain mx-auto group-hover:scale-110 transition duration-300">
+                            <div class="text-[11px] font-bold text-white mt-1 truncate">{{ f.name }}</div>
+                            <div class="text-[10px] font-bold text-amber-400">{{ "{:,.0f}".format(f.price) }}đ</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Col: AI Face Analysis & Order Action -->
+        <div class="space-y-5">
+            
+            <!-- AI Face Analysis Card -->
+            <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                        <i class="fa-solid fa-robot text-amber-400"></i> Đo Đạc Kích Thước Quang Học Thật (mm)
+                    </h3>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded"
+                          :class="faceAnalysis.isAnalyzed ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'">
+                        <span x-text="faceAnalysis.isAnalyzed ? '✅ Đã hiệu chỉnh mm' : 'Chưa có mặt'"></span>
+                    </span>
+                </div>
+
+                <div class="space-y-3 text-xs">
+                    <!-- Dáng mặt -->
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800">
+                        <span class="text-slate-400 font-medium">Dáng khuôn mặt:</span>
+                        <div class="text-right">
+                            <span class="font-black text-sm"
+                                  :class="faceAnalysis.isAnalyzed ? 'text-amber-400' : 'text-slate-400'"
+                                  x-text="faceAnalysis.shape"></span>
+                            <div x-show="faceAnalysis.ratio" class="text-[10px] text-slate-400" x-text="'Tỉ lệ dài/rộng: ' + faceAnalysis.ratio"></div>
+                        </div>
+                    </div>
+
+                    <!-- Bề ngang mặt thật theo mm (Size kính) -->
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800">
+                        <div>
+                            <span class="text-slate-400 font-medium block">Bề ngang mặt thật (mm):</span>
+                            <span class="text-[10px] text-slate-500">Chuẩn hóa quang học</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-black text-white text-sm" x-text="faceAnalysis.realFaceWidth ? (faceAnalysis.realFaceWidth + ' mm') : '-- mm'"></span>
+                            <div x-show="faceAnalysis.recommendedSize" class="text-[10px] font-bold text-amber-400" x-text="faceAnalysis.recommendedSize"></div>
+                        </div>
+                    </div>
+
+                    <!-- Khoảng cách đồng tử PD (bất biến theo khoảng cách) -->
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800">
+                        <div>
+                            <span class="text-slate-400 font-medium block">Khoảng cách đồng tử (PD):</span>
+                            <span class="text-[10px] text-emerald-400">Ổn định ~62.5 mm</span>
+                        </div>
+                        <span class="font-black text-teal-400 text-sm"
+                              x-text="faceAnalysis.pd ? (faceAnalysis.pd + ' mm') : '-- mm'"></span>
+                    </div>
+
+                    <!-- Khuyến nghị gọng hợp -->
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800">
+                        <span class="text-slate-400 font-medium">Khuyến nghị gọng hợp:</span>
+                        <span class="font-bold text-white text-right" x-text="faceAnalysis.recommendation"></span>
+                    </div>
+
+                    <!-- Đánh giá chi tiết -->
+                    <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] leading-relaxed"
+                         :class="faceAnalysis.isAnalyzed ? 'text-slate-300' : 'text-slate-400 italic'">
+                        💡 <strong class="text-amber-400">Kết quả đo quang học:</strong>
+                        <span x-text="faceAnalysis.matchReview"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Frame Summary & Direct Add to Cart -->
+            <div class="bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950/40 rounded-2xl border border-slate-800 p-5 shadow-xl space-y-4">
+                <div class="space-y-1">
+                    <span class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Đang xem & thử</span>
+                    <h3 class="font-extrabold text-base text-white" x-text="currentFrame.name"></h3>
+                    <div class="text-xs text-slate-400">Dáng: <span x-text="currentFrame.shape"></span> • Chất liệu: <span x-text="currentFrame.material"></span></div>
+                    <div class="text-2xl font-black text-amber-400 mt-2" x-text="formatCurrency(currentFrame.price)"></div>
+                </div>
+
+                <div class="space-y-2 pt-2 border-t border-slate-800">
+                    <a :href="'/products/' + currentFrame.id" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 text-slate-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Cắt Tròng & Đặt Hàng Mẫu Này</span>
+                    </a>
+                    <button @click="addCurrentFrameToCart()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-cart-plus"></i> Thêm gọng vào giỏ
+                    </button>
+                </div>
+            </div>
+
+    <!-- ================= 4-FRAME 2X2 SNAPSHOT COMPARISON MODAL ================= -->
+    <div x-show="showCompareModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md" style="display: none;">
+        <div @click.away="showCompareModal = false" class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-4xl p-6 sm:p-8 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                    <h3 class="text-lg font-black text-white flex items-center gap-2">
+                        <i class="fa-solid fa-table-cells text-amber-400"></i> So Sánh 4 Dáng Gọng Kính Trên Khuôn Mặt Bạn
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Xem cùng lúc các kiểu dáng gọng kính bạn đã thử để chọn mẫu đẹp và vừa vặn nhất.</p>
+                </div>
+                <button @click="showCompareModal = false" class="text-slate-400 hover:text-white p-2 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Snapshots Empty State -->
+            <div x-show="snapshots.length === 0" class="text-center py-12 space-y-3">
+                <div class="w-16 h-16 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center text-2xl mx-auto">
+                    <i class="fa-solid fa-camera"></i>
+                </div>
+                <div class="text-white font-bold text-sm">Chưa có ảnh chụp nào trong bộ so sánh</div>
+                <p class="text-xs text-slate-400 max-w-sm mx-auto">Khi đang bật camera thử kính, hãy bấm nút <strong>"Chụp Ảnh Mẫu Này"</strong> để lưu tối đa 4 bức ảnh so sánh.</p>
+            </div>
+
+            <!-- 2x2 Snapshot Comparison Grid -->
+            <div x-show="snapshots.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <template x-for="(snap, idx) in snapshots" :key="idx">
+                    <div class="bg-slate-950 rounded-2xl border border-slate-800 p-3.5 space-y-3 relative group hover:border-amber-500/50 transition">
+                        <div class="relative rounded-xl overflow-hidden aspect-[4/3] bg-slate-900 border border-slate-800">
+                            <img :src="snap.imageUrl" alt="Snapshot" class="w-full h-full object-cover">
+                            <span class="absolute top-2 left-2 px-2.5 py-1 rounded-md bg-slate-950/80 backdrop-blur text-[10px] font-bold text-amber-400" x-text="'Mẫu #' + (idx + 1)"></span>
+                        </div>
+
+                        <div class="flex items-center justify-between text-xs">
+                            <div>
+                                <div class="font-extrabold text-white truncate max-w-[160px]" x-text="snap.frameName"></div>
+                                <div class="text-[11px] text-amber-400 font-black mt-0.5" x-text="formatCurrency(snap.framePrice)"></div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <a :href="'/products/' + snap.frameId" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow transition">
+                                    Chọn Mua
+                                </a>
+                                <button @click="removeSnapshot(idx)" class="text-slate-500 hover:text-rose-400 p-1 text-xs" title="Xóa ảnh này">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Footer Action -->
+            <div x-show="snapshots.length > 0" class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-800 text-xs">
+                <span class="text-slate-400">Đã chụp <strong class="text-white" x-text="snapshots.length"></strong> / 4 mẫu gọng kính</span>
+                <div class="flex items-center gap-3">
+                    <button @click="clearSnapshots()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-400 font-semibold transition">
+                        Xóa tất cả ảnh chụp
+                    </button>
+                    <button @click="showCompareModal = false" class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition">
+                        Tiếp Tục Thử Kính
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- OptiStyle Custom Try-On Engine -->
+<script src="/static/js/tryon.js"></script>
+
+<script>
+    function tryOnApp() {
+        return {
+            engine: null,
+            isCameraActive: false,
+            isImageLoaded: false,
+            showLandmarks: false,
+            showCalibrationGuide: true,
+            statusBadge: 'Chưa bật camera',
+            activeModelIndex: -1,
+            snapshots: [],
+            showCompareModal: false,
+            
+            distanceInfo: {
+                distance: null,
+                status: 'IDLE',
+                advice: 'Ngồi cách camera 50 - 60 cm'
+            },
+
+            sampleModels: [
+                {
+                    name: 'Mẫu Nữ 1 (Trái xoan)',
+                    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80',
+                    analysis: {
+                        has_face: true,
+                        face_shape: 'Trái xoan',
+                        ratio: 1.36,
+                        estimated_pd: 62.5,
+                        estimated_distance_cm: 55.0,
+                        distance_status: 'OPTIMAL',
+                        distance_advice: 'Khoảng cách chuẩn 55 cm ✅',
+                        real_face_width_mm: 136,
+                        recommended_frame_size: 'Size M (51-53mm)',
+                        reason: 'Đo đạc hình học: Bề ngang thật ~136mm (Size M). Tỷ lệ dài/rộng đạt 1.36 cân đối lý tưởng.',
+                        glasses_position: {
+                            center_x: 400,
+                            center_y: 260,
+                            width: 280,
+                            height: 98,
+                            angle: 0
+                        }
+                    }
+                },
+                {
+                    name: 'Mẫu Nữ 2 (Mặt tròn)',
+                    url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&auto=format&fit=crop&q=80',
+                    analysis: {
+                        has_face: true,
+                        face_shape: 'Tròn',
+                        ratio: 1.18,
+                        estimated_pd: 61.0,
+                        estimated_distance_cm: 55.0,
+                        distance_status: 'OPTIMAL',
+                        distance_advice: 'Khoảng cách chuẩn 55 cm ✅',
+                        real_face_width_mm: 140,
+                        recommended_frame_size: 'Size M (51-53mm)',
+                        reason: 'Đo đạc hình học: Bề ngang thật ~140mm (Size M). Tỷ lệ dài/rộng đạt 1.18 (< 1.22) xấp xỉ 1:1.',
+                        glasses_position: {
+                            center_x: 400,
+                            center_y: 270,
+                            width: 270,
+                            height: 95,
+                            angle: 0
+                        }
+                    }
+                },
+                {
+                    name: 'Mẫu Nam 1 (Mặt vuông)',
+                    url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&auto=format&fit=crop&q=80',
+                    analysis: {
+                        has_face: true,
+                        face_shape: 'Vuông',
+                        ratio: 1.31,
+                        estimated_pd: 64.0,
+                        estimated_distance_cm: 55.0,
+                        distance_status: 'OPTIMAL',
+                        distance_advice: 'Khoảng cách chuẩn 55 cm ✅',
+                        real_face_width_mm: 145,
+                        recommended_frame_size: 'Size L (54-56mm)',
+                        reason: 'Đo đạc hình học: Bề ngang thật ~145mm (Size L). Xương hàm góc cạnh nam tính.',
+                        glasses_position: {
+                            center_x: 400,
+                            center_y: 250,
+                            width: 290,
+                            height: 101,
+                            angle: 0
+                        }
+                    }
+                },
+                {
+                    name: 'Mẫu Nam 2 (Mặt dài)',
+                    url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&auto=format&fit=crop&q=80',
+                    analysis: {
+                        has_face: true,
+                        face_shape: 'Dài',
+                        ratio: 1.58,
+                        estimated_pd: 65.0,
+                        estimated_distance_cm: 55.0,
+                        distance_status: 'OPTIMAL',
+                        distance_advice: 'Khoảng cách chuẩn 55 cm ✅',
+                        real_face_width_mm: 134,
+                        recommended_frame_size: 'Size M (51-53mm)',
+                        reason: 'Đo đạc hình học: Bề ngang thật ~134mm (Size M). Tỷ lệ dài/rộng đạt 1.58 (> 1.48) thon dài.',
+                        glasses_position: {
+                            center_x: 400,
+                            center_y: 255,
+                            width: 275,
+                            height: 96,
+                            angle: 0
+                        }
+                    }
+                }
+            ],
+
+            currentFrame: {
+                id: {{ selected_frame.id if selected_frame else 1 }},
+                name: "{{ selected_frame.name if selected_frame else 'Gọng Kính Kim Chi' }}",
+                price: {{ selected_frame.price if selected_frame else 850000 }},
+                overlayUrl: "{{ selected_frame.tryon_overlay_url if selected_frame and selected_frame.tryon_overlay_url else '/static/img/frames/square_black.svg' }}",
+                shape: "{{ selected_frame.shape if selected_frame else 'Vuông' }}",
+                material: "{{ selected_frame.material if selected_frame else 'Titanium' }}"
+            },
+
+            faceAnalysis: {
+                isAnalyzed: false,
+                shape: 'Chưa có khuôn mặt',
+                ratio: null,
+                realFaceWidth: null,
+                recommendedSize: null,
+                pd: null,
+                recommendation: 'Chờ camera hoặc ảnh...',
+                matchReview: 'Vui lòng ngồi cách camera 50 - 60 cm để hệ thống đo đạc chuẩn xác các thông số quang học theo mm.'
+            },
+
+            init() {
+                const videoEl = document.getElementById('webcamVideo');
+                const canvasEl = document.getElementById('outputCanvas');
+                
+                this.engine = new OptiTryOnEngine(videoEl, canvasEl, {
+                    glassesOverlayUrl: this.currentFrame.overlayUrl,
+                    showLandmarks: this.showLandmarks,
+                    showCalibrationGuide: this.showCalibrationGuide,
+                    onStatusChanged: (status, type) => {
+                        this.statusBadge = status;
+                    },
+                    onNoFaceDetected: (msg) => {
+                        this.faceAnalysis.isAnalyzed = false;
+                        this.faceAnalysis.shape = 'Không tìm thấy mặt ❌';
+                        this.faceAnalysis.realFaceWidth = null;
+                        this.faceAnalysis.recommendedSize = null;
+                        this.faceAnalysis.pd = null;
+                        this.faceAnalysis.ratio = null;
+                        this.faceAnalysis.recommendation = 'Từ chối phân tích';
+                        this.faceAnalysis.matchReview = '❌ ' + (msg || 'Không phát hiện khuôn mặt người trong ảnh.');
+                        this.distanceInfo.distance = null;
+                        this.distanceInfo.status = 'NO_FACE';
+                        this.distanceInfo.advice = 'Không tìm thấy khuôn mặt';
+                    },
+                    onFaceLost: () => {
+                        if (this.isCameraActive) {
+                            this.faceAnalysis.isAnalyzed = false;
+                            this.faceAnalysis.shape = 'Đang tìm khuôn mặt...';
+                            this.faceAnalysis.realFaceWidth = null;
+                            this.faceAnalysis.recommendedSize = null;
+                            this.faceAnalysis.pd = null;
+                            this.faceAnalysis.ratio = null;
+                            this.faceAnalysis.matchReview = 'Vui lòng đưa mặt vào giữa khung tròn chuẩn 55 cm để hệ thống đo đạc.';
+                            this.distanceInfo.distance = null;
+                            this.distanceInfo.status = 'NO_FACE';
+                            this.distanceInfo.advice = 'Đang tìm khuôn mặt...';
+                        }
+                    },
+                    onFaceAnalyzed: (result) => {
+                        this.faceAnalysis.isAnalyzed = true;
+                        this.faceAnalysis.shape = 'Mặt ' + (result.face_shape || result.faceShape) + ' ⭐';
+                        this.faceAnalysis.ratio = result.ratio;
+                        this.faceAnalysis.pd = result.estimated_pd || result.estimatedPD || 62.5;
+                        this.faceAnalysis.realFaceWidth = result.real_face_width_mm || 138;
+                        this.faceAnalysis.recommendedSize = result.recommended_frame_size || 'Size M (51-53mm)';
+                        
+                        if (result.estimated_distance_cm) {
+                            this.distanceInfo.distance = result.estimated_distance_cm;
+                            this.distanceInfo.status = result.distance_status || 'OPTIMAL';
+                            this.distanceInfo.advice = result.distance_advice || 'Khoảng cách chuẩn 55 cm ✅';
+                        }
+
+                        const shape = result.face_shape || result.faceShape;
+                        if (shape === 'Tròn') {
+                            this.faceAnalysis.recommendation = 'Vuông, Chữ nhật, Browline';
+                            this.faceAnalysis.matchReview = (result.reason || '') + ' Khuyên dùng gọng vuông để kéo dài và làm thon gọn mặt.';
+                        } else if (shape === 'Vuông') {
+                            this.faceAnalysis.recommendation = 'Tròn, Oval, Aviator';
+                            this.faceAnalysis.matchReview = (result.reason || '') + ' Khuyên dùng gọng cong tròn mềm mại để làm dịu góc hàm.';
+                        } else if (shape === 'Dài') {
+                            this.faceAnalysis.recommendation = 'Aviator, Gọng to, Tròn';
+                            this.faceAnalysis.matchReview = (result.reason || '') + ' Khuyên dùng gọng bản cao để cân đối chiều dài khuôn mặt.';
+                        } else if (shape === 'Kim cương') {
+                            this.faceAnalysis.recommendation = 'Mắt mèo, Oval, Browline';
+                            this.faceAnalysis.matchReview = (result.reason || '') + ' Khuyên dùng gọng mắt mèo/browline để tôn gò má.';
+                        } else {
+                            this.faceAnalysis.recommendation = 'Hầu hết mọi dáng gọng';
+                            this.faceAnalysis.matchReview = (result.reason || '') + ' Tỷ lệ cân đối lý tưởng, rất hợp với mẫu kính đang thử!';
+                        }
+                    }
+                });
+            },
+
+            selectSampleModel(index) {
+                this.activeModelIndex = index;
+                this.isImageLoaded = true;
+                const model = this.sampleModels[index];
+                if (!model) return;
+
+                this.stopCamera();
+                this.statusBadge = model.name;
+
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    this.engine.processStaticImage(img, model.analysis);
+                };
+                img.src = model.url;
+            },
+
+            async startCamera() {
+                try {
+                    this.activeModelIndex = -1;
+                    this.isImageLoaded = false;
+                    await this.engine.startCamera();
+                    this.isCameraActive = true;
+                } catch (e) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Truy Cập Camera',
+                        text: 'Vui lòng bấm "Cho phép" (Allow) trên cửa sổ thông báo của trình duyệt để sử dụng Camera trực tiếp.',
+                        confirmButtonColor: '#f59e0b'
+                    });
+                }
+            },
+
+            stopCamera() {
+                if (this.engine) {
+                    this.engine.stopCamera();
+                }
+                this.isCameraActive = false;
+                this.faceAnalysis.isAnalyzed = false;
+                this.faceAnalysis.shape = 'Chưa bật camera';
+                this.faceAnalysis.realFaceWidth = null;
+                this.faceAnalysis.recommendedSize = null;
+                this.faceAnalysis.pd = null;
+                this.faceAnalysis.ratio = null;
+                this.distanceInfo.distance = null;
+                this.distanceInfo.status = 'IDLE';
+                this.distanceInfo.advice = 'Ngồi cách camera 50 - 60 cm';
+            },
+
+            toggleCamera() {
+                if (this.isCameraActive) {
+                    this.stopCamera();
+                } else {
+                    this.startCamera();
+                }
+            },
+
+            toggleMirror() {
+                if (this.engine) {
+                    this.engine.options.isMirrored = !this.engine.options.isMirrored;
+                }
+            },
+
+            toggleLandmarks() {
+                this.showLandmarks = !this.showLandmarks;
+                if (this.engine) {
+                    this.engine.options.showLandmarks = this.showLandmarks;
+                }
+            },
+
+            toggleCalibrationGuide() {
+                this.showCalibrationGuide = !this.showCalibrationGuide;
+                if (this.engine) {
+                    this.engine.options.showCalibrationGuide = this.showCalibrationGuide;
+                }
+            },
+
+            selectFrame(frame) {
+                this.currentFrame = frame;
+                if (this.engine) {
+                    this.engine.loadGlasses(frame.overlayUrl);
+                }
+            },
+
+            async handleImageUpload(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                this.activeModelIndex = -1;
+                this.isImageLoaded = true;
+                this.stopCamera();
+
+                this.statusBadge = 'Đang kiểm định OpenCV... 🔍';
+                this.faceAnalysis.isAnalyzed = false;
+                this.faceAnalysis.shape = 'Đang kiểm tra... 🔍';
+                this.faceAnalysis.realFaceWidth = null;
+                this.faceAnalysis.recommendedSize = null;
+                this.faceAnalysis.pd = null;
+                this.faceAnalysis.ratio = null;
+                this.faceAnalysis.recommendation = 'Đang quét ảnh...';
+                this.faceAnalysis.matchReview = 'Hệ thống đang kiểm tra xem ảnh có chứa khuôn mặt người hay không...';
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const img = new Image();
+                    img.onload = async () => {
+                        try {
+                            const res = await fetch('/api/cv/detect-face-image', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            const data = await res.json();
+
+                            if (data.has_face) {
+                                this.statusBadge = 'Đã phát hiện khuôn mặt';
+                                this.engine.processStaticImage(img, data);
+                            } else {
+                                this.statusBadge = 'Ảnh không hợp lệ ❌';
+                                this.engine.processStaticImage(img, { has_face: false });
+                                this.faceAnalysis.isAnalyzed = false;
+                                this.faceAnalysis.shape = 'Không tìm thấy mặt ❌';
+                                this.faceAnalysis.realFaceWidth = null;
+                                this.faceAnalysis.recommendedSize = null;
+                                this.faceAnalysis.pd = null;
+                                this.faceAnalysis.ratio = null;
+                                this.faceAnalysis.recommendation = 'Từ chối phân tích';
+                                this.faceAnalysis.matchReview = '❌ ' + (data.message || 'Không phát hiện khuôn mặt người trong ảnh.');
+                                
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Không phát hiện khuôn mặt!',
+                                    text: data.message || 'Hình ảnh này không chứa khuôn mặt người hoặc ảnh là đồ vật, phong cảnh. Hệ thống từ chối ướm kính.',
+                                    confirmButtonColor: '#f59e0b'
+                                });
+                            }
+                        } catch (err) {
+                            this.engine.processStaticImage(img, null);
+                        }
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            },
+
+            formatCurrency(val) {
+                return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+            },
+
+            addCurrentFrameToCart() {
+                const globalCart = Alpine.$data(document.body);
+                if (globalCart && globalCart.addToCart) {
+                    globalCart.addToCart({
+                        frameId: this.currentFrame.id,
+                        frameName: this.currentFrame.name,
+                        framePrice: this.currentFrame.price,
+                        frameImage: this.currentFrame.overlayUrl,
+                        lensId: null,
+                        lensName: 'Gọng kính trơn (Chưa chọn tròng)',
+                        lensPrice: 0,
+                        quantity: 1,
+                        right_sph: 0,
+                        right_cyl: 0,
+                        right_axis: 0,
+                        left_sph: 0,
+                        left_cyl: 0,
+                        left_axis: 0,
+                        pd: this.faceAnalysis.pd || 62.5
+                    });
+                }
+            },
+
+            captureSnapshot() {
+                const canvas = document.getElementById('outputCanvas');
+                if (!canvas) return;
+
+                if (this.snapshots.length >= 4) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Bộ nhớ so sánh đã đủ 4 mẫu',
+                        text: 'Bạn đã chụp đủ 4 mẫu gọng kính. Hãy bấm vào "So Sánh Lưới (2x2)" để xem.',
+                        confirmButtonColor: '#f59e0b'
+                    });
+                    this.showCompareModal = true;
+                    return;
+                }
+
+                try {
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+                    this.snapshots.push({
+                        frameId: this.currentFrame.id,
+                        frameName: this.currentFrame.name,
+                        framePrice: this.currentFrame.price,
+                        shape: this.currentFrame.shape,
+                        imageUrl: dataUrl
+                    });
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: `Đã lưu mẫu #${this.snapshots.length}`,
+                        text: `Đã chụp ảnh bạn đeo ${this.currentFrame.name} vào bộ so sánh (${this.snapshots.length}/4).`,
+                        timer: 1300,
+                        showConfirmButton: false
+                    });
+                } catch (e) {
+                    Swal.fire('Lỗi', 'Không thể chụp ảnh canvas', 'error');
+                }
+            },
+
+            removeSnapshot(index) {
+                this.snapshots.splice(index, 1);
+            },
+
+            clearSnapshots() {
+                this.snapshots = [];
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Đã xóa tất cả ảnh chụp',
+                    timer: 1000,
+                    showConfirmButton: false
+                });
+            }
+        }
+    }
+</script>
+{% endblock %}

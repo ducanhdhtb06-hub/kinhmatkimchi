@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6" x-data="profileApp()">
+
+    <!-- Header / Banner -->
+    <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/40 rounded-3xl border border-slate-800 p-6 sm:p-8 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-300 text-slate-950 flex items-center justify-center font-black text-2xl shadow-xl shadow-amber-500/20">
+                {{ current_user.full_name[:1].upper() }}
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xl sm:text-2xl font-black text-white">{{ current_user.full_name }}</h1>
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        {{ '🛡️ Quản trị viên' if current_user.role == 'admin' else '⭐ Thành viên Kim Chi' }}
+                    </span>
+                </div>
+                <div class="text-xs text-slate-400 mt-1 flex flex-wrap items-center gap-3">
+                    <span><i class="fa-solid fa-envelope text-slate-500"></i> {{ current_user.email }}</span>
+                    {% if current_user.phone %}
+                        <span><i class="fa-solid fa-phone text-slate-500"></i> {{ current_user.phone }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <a href="/logout" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 border border-slate-700 text-xs font-bold transition flex items-center gap-2">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Column 1: Saved Prescription Card -->
+        <div class="bg-slate-900/90 rounded-3xl border border-slate-800 p-6 shadow-xl space-y-4 h-fit">
+            <div class="border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                    <i class="fa-solid fa-eye text-amber-400"></i> Hồ Sơ Thị Lực Của Tôi
+                </h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">Lưu thông số để tự động điền khi cắt tròng lần sau.</p>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <!-- Mắt Phải (OD) -->
+                <div class="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                    <div class="font-bold text-amber-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-dot text-[10px]"></i> Mắt Phải (OD)
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Độ Cầu (SPH)</label>
+                            <input type="number" step="0.25" x-model.number="specs.right_sph" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-white text-center">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Độ Loạn (CYL)</label>
+                            <input type="number" step="0.25" x-model.number="specs.right_cyl" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-white text-center">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Trục (AXIS)</label>
+                            <input type="number" x-model.number="specs.right_axis" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-white text-center">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mắt Trái (OS) -->
+                <div class="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                    <div class="font-bold text-teal-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-dot text-[10px]"></i> Mắt Trái (OS)
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Độ Cầu (SPH)</label>
+                            <input type="number" step="0.25" x-model.number="specs.left_sph" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-white text-center">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Độ Loạn (CYL)</label>
+                            <input type="number" step="0.25" x-model.number="specs.left_cyl" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-white text-center">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Trục (AXIS)</label>
+                            <input type="number" x-model.number="specs.left_axis" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-white text-center">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PD -->
+                <div>
+                    <label class="font-semibold text-slate-300 block mb-1">Khoảng cách đồng tử (PD - mm)</label>
+                    <input type="number" step="0.5" x-model.number="specs.pd" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white text-center">
+                </div>
+
+                <button @click="savePrescription()" :disabled="isSaving" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span x-text="isSaving ? 'Đang lưu...' : 'Lưu Thông Số Thị Lực'"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Column 2 & 3: Order History -->
+        <div class="lg:col-span-2 space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="font-black text-base text-white flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-amber-400"></i> Lịch Sử Đơn Hàng ({{ user_orders|length }})
+                </h3>
+                <a href="/products" class="text-xs text-amber-400 hover:underline font-semibold">
+                    + Mua thêm kính mới
+                </a>
+            </div>
+
+            {% if user_orders|length == 0 %}
+                <div class="bg-slate-900/90 rounded-3xl border border-slate-800 p-10 text-center space-y-3">
+                    <div class="w-14 h-14 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center text-2xl mx-auto">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                    <div class="text-white font-bold text-sm">Bạn chưa có đơn hàng nào</div>
+                    <p class="text-xs text-slate-400">Hãy chọn ngay một mẫu gọng kính phù hợp và thử qua camera AR!</p>
+                    <a href="/products" class="inline-block px-5 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs shadow-lg">Khám phá gọng kính</a>
+                </div>
+            {% else %}
+                <div class="space-y-4">
+                    {% for ord in user_orders %}
+                        <div class="bg-slate-900/90 rounded-3xl border border-slate-800 p-5 shadow-lg space-y-4 hover:border-slate-700 transition">
+                            
+                            <!-- Order Header -->
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                                <div>
+                                    <span class="font-mono font-bold text-amber-400 text-sm">#{{ ord.order_code }}</span>
+                                    <span class="text-[11px] text-slate-400 ml-2">{{ ord.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                                          :class="'{{ ord.payment_status }}' === 'Đã thanh toán' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'">
+                                        {{ ord.payment_status }}
+                                    </span>
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                                        {{ ord.order_status }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Items -->
+                            <div class="space-y-2 text-xs">
+                                {% for it in ord.items %}
+                                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800/80">
+                                        <div>
+                                            <div class="font-bold text-white">{{ it.frame.name if it.frame else 'Gọng Kính' }} (x{{ it.quantity }})</div>
+                                            <div class="text-[11px] text-amber-400/90">{{ it.lens.name if it.lens else 'Không cắt tròng' }}</div>
+                                            {% if it.right_sph or it.left_sph %}
+                                                <div class="text-[10px] text-slate-400 mt-0.5">
+                                                    R: SPH {{ "{:+.2f}".format(it.right_sph) }} | L: SPH {{ "{:+.2f}".format(it.left_sph) }} | PD: {{ it.pd }}mm
+                                                </div>
+                                            {% endif %}
+                                            {% if it.prescription_image_url %}
+                                                <div class="mt-1">
+                                                    <a href="{{ it.prescription_image_url }}" target="_blank" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 text-[10px] font-semibold border border-amber-500/30 transition">
+                                                        <i class="fa-solid fa-file-medical"></i> Xem ảnh phiếu khám gốc đã tải
+                                                    </a>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="font-bold text-slate-200">
+                                            {{ "{:,.0f}".format((it.frame_price + it.lens_price) * it.quantity) }}đ
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Footer Total & Actions -->
+                            <div class="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-800/80 text-xs">
+                                <div>
+                                    {% if ord.voucher_code %}
+                                        <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-mono font-bold">
+                                            🎟️ Đã áp mã: {{ ord.voucher_code }} (-{{ "{:,.0f}".format(ord.discount_amount) }}đ)
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div>
+                                        <span class="text-slate-400">Tổng thanh toán:</span>
+                                        <strong class="text-amber-400 text-sm font-black ml-1">{{ "{:,.0f}".format(ord.total_amount) }}đ</strong>
+                                    </div>
+                                    <a href="/orders/success/{{ ord.order_code }}" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition">
+                                        Xem chi tiết
+                                    </a>
+                                </div>
+                            </div>
+
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function profileApp() {
+        return {
+            isSaving: false,
+            specs: {
+                user_id: {{ current_user.id }},
+                right_sph: {{ current_user.saved_right_sph or 0.0 }},
+                right_cyl: {{ current_user.saved_right_cyl or 0.0 }},
+                right_axis: {{ current_user.saved_right_axis or 0 }},
+                left_sph: {{ current_user.saved_left_sph or 0.0 }},
+                left_cyl: {{ current_user.saved_left_cyl or 0.0 }},
+                left_axis: {{ current_user.saved_left_axis or 0 }},
+                pd: {{ current_user.saved_pd or 62.5 }}
+            },
+
+            async savePrescription() {
+                this.isSaving = true;
+                try {
+                    const res = await fetch('/api/profile/prescription', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.specs)
+                    });
+                    const data = await res.json();
+                    this.isSaving = false;
+                    if (res.ok) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Đã lưu!',
+                            text: 'Thông số thị lực cá nhân đã được lưu vào hồ sơ.',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        Swal.fire('Lỗi', data.detail || 'Không thể lưu hồ sơ', 'error');
+                    }
+                } catch (e) {
+                    this.isSaving = false;
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ', 'error');
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}

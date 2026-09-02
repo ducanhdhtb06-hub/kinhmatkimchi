@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6" x-data="cartViewApp()">
+
+    <!-- Page Header -->
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-black text-white">Giỏ Hàng Của Bạn</h1>
+            <p class="text-xs text-slate-400 mt-0.5">Kiểm tra và chỉnh sửa lại gọng kính hoặc thông số độ mắt trước khi thanh toán</p>
+        </div>
+        <a href="/products" class="text-xs font-bold text-amber-400 hover:text-amber-300 transition">
+            <i class="fa-solid fa-plus"></i> Chọn thêm gọng kính khác
+        </a>
+    </div>
+
+    <!-- Cart Items List (Alpine synced) -->
+    <div x-show="cart.length > 0" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left 2 Cols: Item Details -->
+        <div class="lg:col-span-2 space-y-4">
+            <template x-for="(item, index) in cart" :key="index">
+                <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl space-y-4">
+                    
+                    <div class="flex items-start gap-4">
+                        <!-- Frame Thumbnail -->
+                        <div class="w-20 h-20 rounded-xl bg-slate-950 p-2 border border-slate-800 flex-shrink-0 flex items-center justify-center">
+                            <img :src="item.frameImage || '/static/img/frames/square_black.svg'" :alt="item.frameName" class="w-full h-full object-contain">
+                        </div>
+
+                        <!-- Info -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-start justify-between gap-2">
+                                <h3 class="font-extrabold text-white text-base truncate" x-text="item.frameName"></h3>
+                                <button @click="removeFromCart(index)" class="text-slate-400 hover:text-rose-400 text-xs p-1" title="Xóa">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                            <div class="text-xs text-amber-400 font-bold mt-0.5" x-text="formatCurrency(item.framePrice)"></div>
+                            
+                            <!-- Attached Lens Info & Edit Button -->
+                            <div class="mt-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800/80 text-xs space-y-1.5">
+                                <div class="font-semibold text-slate-200 flex items-center justify-between">
+                                    <span>🔍 Tròng: <strong class="text-amber-400" x-text="item.lensName"></strong></span>
+                                    <span class="text-teal-400 font-bold" x-text="item.lensPrice > 0 ? '+' + formatCurrency(item.lensPrice) : 'Miễn phí'"></span>
+                                </div>
+                                <div class="text-[11px] text-slate-400 flex flex-wrap gap-x-3 gap-y-0.5">
+                                    <span>Mắt P: SPH <strong class="text-slate-200" x-text="item.right_sph"></strong> | CYL <strong class="text-slate-200" x-text="item.right_cyl"></strong> | Trục <strong class="text-slate-200" x-text="item.right_axis + '°'"></strong></span>
+                                    <span>Mắt T: SPH <strong class="text-slate-200" x-text="item.left_sph"></strong> | CYL <strong class="text-slate-200" x-text="item.left_cyl"></strong> | Trục <strong class="text-slate-200" x-text="item.left_axis + '°'"></strong></span>
+                                    <span>PD: <strong class="text-slate-200" x-text="item.pd + 'mm'"></strong></span>
+                                </div>
+                                <div x-show="item.prescriptionImageUrl" class="mt-1" style="display: none;">
+                                    <a :href="item.prescriptionImageUrl" target="_blank" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 text-[10px] font-semibold border border-teal-500/30 transition">
+                                        <i class="fa-solid fa-file-image"></i> Ảnh phiếu khám đã quét (Bấm để xem)
+                                    </a>
+                                </div>
+                                <div class="pt-1 flex items-center justify-end">
+                                    <button @click="openEditPrescriptionModal(index)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 font-bold text-[11px] border border-slate-700 hover:border-amber-500/40 transition flex items-center gap-1.5">
+                                        <i class="fa-solid fa-pen-to-square"></i> Chỉnh sửa số độ thủ công
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI OCR Quick Edit Bar -->
+                    <div class="p-3 rounded-xl bg-slate-950/70 border border-dashed border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span class="text-slate-400">Muốn quét lại bằng ảnh đơn kính khác?</span>
+                        <label class="px-3 py-1.5 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/30 font-bold cursor-pointer transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-camera"></i> Quét AI Tự Điền Số Độ
+                            <input type="file" accept="image/*" @change="uploadAndScanPrescription($event, index)" class="hidden">
+                        </label>
+                    </div>
+
+                    <!-- Quantity & Subtotal -->
+                    <div class="flex items-center justify-between pt-3 border-t border-slate-800/80 text-xs">
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400">Số lượng:</span>
+                            <div class="flex items-center gap-1.5">
+                                <button @click="if(item.quantity > 1) { item.quantity--; saveCart(); }" class="w-6 h-6 rounded bg-slate-800 text-white font-bold text-xs">-</button>
+                                <span class="w-8 text-center font-bold text-white" x-text="item.quantity"></span>
+                                <button @click="item.quantity++; saveCart();" class="w-6 h-6 rounded bg-slate-800 text-white font-bold text-xs">+</button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="text-slate-400 mr-2">Thành tiền:</span>
+                            <span class="font-black text-amber-400 text-base" x-text="formatCurrency((item.framePrice + (item.lensPrice || 0)) * item.quantity)"></span>
+                        </div>
+                    </div>
+
+                </div>
+            </template>
+        </div>
+
+        <!-- Right Col: Order Summary & Voucher -->
+        <div class="bg-slate-900/90 rounded-3xl border border-slate-800 p-6 shadow-xl space-y-5 h-fit">
+            <h3 class="font-black text-base text-white border-b border-slate-800 pb-3">Tóm Tắt Thanh Toán</h3>
+            
+            <!-- Voucher / Promo Code Box -->
+            <div class="space-y-2">
+                <label class="block text-xs font-bold text-slate-300">Mã Giảm Giá (Voucher)</label>
+                <div class="flex gap-2">
+                    <input type="text" x-model="voucherCode" placeholder="Nhập KIMCHI50K, KIMCHI10..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-amber-400">
+                    <button @click="applyVoucher()" :disabled="isApplyingVoucher" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow transition flex-shrink-0">
+                        Áp dụng
+                    </button>
+                </div>
+
+                <div x-show="appliedVoucher" class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium flex items-center justify-between" style="display: none;">
+                    <div>
+                        <strong x-text="appliedVoucher ? appliedVoucher.voucher_code : ''"></strong>: 
+                        <span x-text="appliedVoucher ? appliedVoucher.message : ''"></span>
+                    </div>
+                    <button @click="removeVoucher()" class="text-slate-400 hover:text-rose-400 ml-2"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+
+            <div class="space-y-2.5 text-xs text-slate-300 border-t border-slate-800 pt-3">
+                <div class="flex items-center justify-between">
+                    <span>Tổng tiền sản phẩm:</span>
+                    <span class="font-bold text-white" x-text="formatCurrency(cartTotal)"></span>
+                </div>
+                <div x-show="appliedVoucher" class="flex items-center justify-between text-emerald-400 font-bold" style="display: none;">
+                    <span>Giảm giá voucher:</span>
+                    <span x-text="'-' + formatCurrency(discountAmount)"></span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span>Phí gia công mài tròng:</span>
+                    <span class="text-emerald-400 font-bold">Miễn phí ✨</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span>Phí vận chuyển:</span>
+                    <span class="text-emerald-400 font-bold">Freeship toàn quốc</span>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-800 flex items-baseline justify-between">
+                <span class="font-bold text-white text-sm">Tổng thanh toán:</span>
+                <span class="text-2xl font-black text-amber-400" x-text="formatCurrency(finalTotal)"></span>
+            </div>
+
+            <a href="/checkout" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/25 transition text-center block">
+                Tiến Hành Đặt Hàng & Cắt Tròng
+            </a>
+
+            <div class="text-[11px] text-slate-400 text-center flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-shield-halved text-amber-400"></i> Bảo hành chính hãng & đo mài chuẩn xác 100%
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Empty State -->
+    <div x-show="cart.length === 0" class="text-center py-20 bg-slate-900/60 rounded-3xl border border-slate-800 space-y-4">
+        <div class="w-20 h-20 rounded-3xl bg-slate-800 text-slate-500 flex items-center justify-center text-3xl mx-auto">
+            <i class="fa-solid fa-bag-shopping"></i>
+        </div>
+        <div>
+            <h3 class="text-lg font-bold text-white">Giỏ hàng của bạn đang trống</h3>
+            <p class="text-xs text-slate-400 mt-1">Hãy chọn cho mình một mẫu gọng kính phù hợp và thử online ngay nhé.</p>
+        </div>
+        <a href="/products" class="inline-block px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/25 transition">
+            Khám phá bộ sưu tập gọng
+        </a>
+    </div>
+
+    <!-- ================= MODAL CHỈNH SỬA SỐ ĐỘ THỦ CÔNG ================= -->
+    <div x-show="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" style="display: none;">
+        <div @click.away="showEditModal = false" class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 sm:p-7 space-y-5 shadow-2xl">
+            
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-amber-400"></i> Chỉnh Sửa Thông Số Độ Mắt
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Tùy chỉnh số đo theo đúng ý bạn trước khi kỹ thuật viên gia công.</p>
+                </div>
+                <button @click="showEditModal = false" class="text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <!-- Mắt Phải OD -->
+                <div class="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                    <div class="font-bold text-amber-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-dot text-[10px]"></i> Mắt Phải (OD)
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Độ Cầu (SPH)</label>
+                            <input type="number" step="0.25" x-model.number="editForm.right_sph" placeholder="-2.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white text-center font-bold focus:border-amber-400">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Độ Loạn (CYL)</label>
+                            <input type="number" step="0.25" x-model.number="editForm.right_cyl" placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white text-center font-bold focus:border-amber-400">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Trục (AXIS °)</label>
+                            <input type="number" min="0" max="180" x-model.number="editForm.right_axis" placeholder="180" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white text-center font-bold focus:border-amber-400">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mắt Trái OS -->
+                <div class="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                    <div class="font-bold text-teal-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-dot text-[10px]"></i> Mắt Trái (OS)
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Độ Cầu (SPH)</label>
+                            <input type="number" step="0.25" x-model.number="editForm.left_sph" placeholder="-2.50" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white text-center font-bold focus:border-amber-400">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Độ Loạn (CYL)</label>
+                            <input type="number" step="0.25" x-model.number="editForm.left_cyl" placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white text-center font-bold focus:border-amber-400">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-0.5">Trục (AXIS °)</label>
+                            <input type="number" min="0" max="180" x-model.number="editForm.left_axis" placeholder="180" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white text-center font-bold focus:border-amber-400">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PD -->
+                <div>
+                    <label class="font-semibold text-slate-300 block mb-1">Khoảng cách đồng tử (PD - mm):</label>
+                    <input type="number" step="0.5" x-model.number="editForm.pd" placeholder="62.5" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white text-center font-bold focus:border-amber-400">
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button @click="showEditModal = false" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 bg-slate-800 hover:bg-slate-700 transition">Hủy</button>
+                <button @click="saveEditedPrescription()" class="px-6 py-2 rounded-xl text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 shadow-md transition">
+                    Lưu Thông Số
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function cartViewApp() {
+        return {
+            voucherCode: '',
+            isApplyingVoucher: false,
+            appliedVoucher: null,
+            discountAmount: 0,
+            showEditModal: false,
+            editingIndex: -1,
+            editForm: {
+                right_sph: 0,
+                right_cyl: 0,
+                right_axis: 0,
+                left_sph: 0,
+                left_cyl: 0,
+                left_axis: 0,
+                pd: 62.5
+            },
+
+            formatCurrency(val) {
+                return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
+            },
+
+            get finalTotal() {
+                const total = this.cartTotal || 0;
+                return Math.max(0, total - this.discountAmount);
+            },
+
+            openEditPrescriptionModal(index) {
+                this.editingIndex = index;
+                const item = this.cart[index];
+                this.editForm = {
+                    right_sph: Number(item.right_sph) || 0,
+                    right_cyl: Number(item.right_cyl) || 0,
+                    right_axis: Number(item.right_axis) || 0,
+                    left_sph: Number(item.left_sph) || 0,
+                    left_cyl: Number(item.left_cyl) || 0,
+                    left_axis: Number(item.left_axis) || 0,
+                    pd: Number(item.pd) || 62.5
+                };
+                this.showEditModal = true;
+            },
+
+            saveEditedPrescription() {
+                if (this.editingIndex >= 0 && this.editingIndex < this.cart.length) {
+                    this.cart[this.editingIndex].right_sph = this.editForm.right_sph;
+                    this.cart[this.editingIndex].right_cyl = this.editForm.right_cyl;
+                    this.cart[this.editingIndex].right_axis = this.editForm.right_axis;
+                    this.cart[this.editingIndex].left_sph = this.editForm.left_sph;
+                    this.cart[this.editingIndex].left_cyl = this.editForm.left_cyl;
+                    this.cart[this.editingIndex].left_axis = this.editForm.left_axis;
+                    this.cart[this.editingIndex].pd = this.editForm.pd;
+                    this.saveCart();
+                    this.showEditModal = false;
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Đã cập nhật số độ!',
+                        text: 'Thông số tròng kính đã được cập nhật chính xác.',
+                        timer: 1200,
+                        showConfirmButton: false
+                    });
+                }
+            },
+
+            async applyVoucher() {
+                if (!this.voucherCode.trim()) {
+                    Swal.fire('Lỗi', 'Vui lòng nhập mã giảm giá', 'warning');
+                    return;
+                }
+                this.isApplyingVoucher = true;
+                try {
+                    const res = await fetch('/api/vouchers/apply', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            code: this.voucherCode.trim(),
+                            cart_total: this.cartTotal
+                        })
+                    });
+                    const data = await res.json();
+                    this.isApplyingVoucher = false;
+                    if (res.ok && data.valid) {
+                        this.appliedVoucher = data;
+                        this.discountAmount = data.discount_amount;
+                        localStorage.setItem('kimchi_applied_voucher', JSON.stringify(data));
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Thành công!',
+                            text: data.message,
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        Swal.fire('Không hợp lệ', data.detail || data.message || 'Mã không tồn tại', 'error');
+                    }
+                } catch (e) {
+                    this.isApplyingVoucher = false;
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ', 'error');
+                }
+            },
+
+            removeVoucher() {
+                this.appliedVoucher = null;
+                this.discountAmount = 0;
+                this.voucherCode = '';
+                localStorage.removeItem('kimchi_applied_voucher');
+            },
+
+            async uploadAndScanPrescription(e, index) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                Swal.fire({
+                    title: 'Đang đọc phiếu khám AI...',
+                    text: 'Hệ thống đang trích xuất số độ Cận, Loạn, Trục & PD',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                try {
+                    const res = await fetch('/api/prescription/ocr', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        // Update cart item with scanned values
+                        this.cart[index].right_sph = data.right_sph || data.data?.right_eye?.sph || 0.0;
+                        this.cart[index].right_cyl = data.right_cyl || data.data?.right_eye?.cyl || 0.0;
+                        this.cart[index].right_axis = data.right_axis || data.data?.right_eye?.axis || 0;
+                        this.cart[index].left_sph = data.left_sph || data.data?.left_eye?.sph || 0.0;
+                        this.cart[index].left_cyl = data.left_cyl || data.data?.left_eye?.cyl || 0.0;
+                        this.cart[index].left_axis = data.left_axis || data.data?.left_eye?.axis || 0;
+                        this.cart[index].pd = data.pd || data.data?.pd || 63.0;
+                        this.cart[index].prescriptionImageUrl = data.image_url;
+                        this.saveCart();
+
+                        // Automatically open edit modal so user can inspect and tweak if AI misread handwriting
+                        this.openEditPrescriptionModal(index);
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Đã quét xong!',
+                            html: `AI đã điền số độ từ ảnh phiếu khám.<br><span class="text-amber-400 font-bold">Vui lòng kiểm tra lại bảng bên dưới và chỉnh sửa nếu cần!</span>`,
+                            confirmButtonColor: '#f59e0b'
+                        });
+                    } else {
+                        const iconType = (data.classification === 'GENERAL_HEALTH_CHECK') ? 'info' : 'warning';
+                        const alertTitle = data.classification_label || 'Lỗi Nhận Diện Phiếu';
+                        const msgContent = data.message || data.detail || 'Không thể trích xuất số độ từ ảnh phiếu.';
+                        const guideContent = data.guide || 'Vui lòng kiểm tra lại ảnh chụp hoặc tự nhập thông số thủ công.';
+
+                        Swal.fire({
+                            icon: iconType,
+                            title: alertTitle,
+                            html: `
+                                <div class="text-left text-xs sm:text-sm text-slate-300 space-y-3 leading-relaxed">
+                                    <p class="font-medium text-slate-200">${msgContent}</p>
+                                    <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                                        ${guideContent}
+                                    </div>
+                                </div>
+                            `,
+                            confirmButtonColor: '#f59e0b',
+                            confirmButtonText: 'Đã hiểu'
+                        });
+                    }
+                } catch (err) {
+                    Swal.fire('Lỗi', 'Không thể gửi ảnh tới máy chủ OCR', 'error');
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}

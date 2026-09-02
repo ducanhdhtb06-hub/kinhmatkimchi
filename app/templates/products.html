@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6" x-data="{
+    category: '{{ selected_category or 'all' }}',
+    shape: '{{ selected_shape }}',
+    material: '{{ selected_material }}',
+    gender: '{{ selected_gender }}',
+    faceShape: '{{ selected_face_shape }}',
+    search: '{{ search_query }}',
+
+    applyFilter() {
+        const params = new URLSearchParams();
+        if (this.category && this.category !== 'all') params.set('category', this.category);
+        if (this.shape && this.shape !== 'all') params.set('shape', this.shape);
+        if (this.material && this.material !== 'all') params.set('material', this.material);
+        if (this.gender && this.gender !== 'all') params.set('gender', this.gender);
+        if (this.faceShape && this.faceShape !== 'all') params.set('face_shape', this.faceShape);
+        if (this.search) params.set('search', this.search);
+        window.location.href = '/products?' + params.toString();
+    }
+}">
+
+    <!-- Breadcrumb & Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-black text-white">Bộ Sưu Tập Kính Mắt Cao Cấp</h1>
+            <p class="text-xs text-slate-400 mt-1">
+                Lọc theo kiểu dáng, chất liệu và khuôn mặt để tìm chiếc kính hoàn hảo nhất cho bạn.
+            </p>
+        </div>
+        <a href="/tryon" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 text-slate-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 transition">
+            <i class="fa-solid fa-camera"></i> Thử Tất Cả Trên Camera AR
+        </a>
+    </div>
+
+    <!-- Main Grid: Filter Sidebar + Products List -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+        <!-- Sidebar Filter -->
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl space-y-5 h-fit">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <span class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-filter text-amber-400"></i> Bộ Lọc Tìm Kiếm
+                </span>
+                <a href="/products" class="text-[11px] text-slate-400 hover:text-amber-400 transition">Xóa lọc</a>
+            </div>
+
+            <!-- Search input -->
+            <div class="space-y-1.5">
+                <label class="block text-[11px] font-semibold text-slate-400">Tìm kiếm từ khóa</label>
+                <div class="relative">
+                    <input type="text" x-model="search" @keyup.enter="applyFilter()" placeholder="Titanium, Aviator, Opti..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                    <button @click="applyFilter()" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dáng khuôn mặt hợp -->
+            <div class="space-y-1.5">
+                <label class="block text-[11px] font-semibold text-slate-400">Dáng khuôn mặt của bạn</label>
+                <select x-model="faceShape" @change="applyFilter()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                    <option value="all">Tất cả dáng mặt</option>
+                    <option value="Tròn">Mặt tròn</option>
+                    <option value="Vuông">Mặt vuông</option>
+                    <option value="Trái xoan">Mặt trái xoan</option>
+                    <option value="Dài">Mặt dài</option>
+                    <option value="Kim cương">Mặt kim cương</option>
+                </select>
+            </div>
+
+            <!-- Kiểu dáng gọng -->
+            <div class="space-y-1.5">
+                <label class="block text-[11px] font-semibold text-slate-400">Kiểu dáng gọng</label>
+                <select x-model="shape" @change="applyFilter()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                    <option value="all">Tất cả kiểu dáng</option>
+                    <option value="Vuông">Gọng vuông</option>
+                    <option value="Tròn">Gọng tròn</option>
+                    <option value="Aviator">Kính phi công (Aviator)</option>
+                    <option value="Mắt mèo">Mắt mèo (Cat-Eye)</option>
+                    <option value="Browline">Browline / Clubmaster</option>
+                    <option value="Chữ nhật">Chữ nhật</option>
+                </select>
+            </div>
+
+            <!-- Chất liệu -->
+            <div class="space-y-1.5">
+                <label class="block text-[11px] font-semibold text-slate-400">Chất liệu</label>
+                <select x-model="material" @change="applyFilter()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                    <option value="all">Tất cả chất liệu</option>
+                    <option value="Titanium">Titanium siêu nhẹ</option>
+                    <option value="Acetate">Nhựa Acetate cao cấp</option>
+                    <option value="Kim loại">Kim loại mạ sang trọng</option>
+                    <option value="Nhựa TR90">Nhựa dẻo TR90</option>
+                </select>
+            </div>
+
+            <!-- Giới tính -->
+            <div class="space-y-1.5">
+                <label class="block text-[11px] font-semibold text-slate-400">Phù hợp giới tính</label>
+                <select x-model="gender" @change="applyFilter()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                    <option value="all">Tất cả (Unisex)</option>
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                </select>
+            </div>
+
+            <button @click="applyFilter()" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition">
+                Áp Dụng Bộ Lọc
+            </button>
+        </div>
+
+        <!-- Products Grid -->
+        <div class="lg:col-span-3">
+            {% if frames %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {% for f in frames %}
+                        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden hover:border-slate-700 transition shadow-xl flex flex-col justify-between group">
+                            <!-- Product Image -->
+                            <div class="relative aspect-[4/3] bg-slate-950 overflow-hidden">
+                                <img src="{{ f.image_url }}" alt="{{ f.name }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                                
+                                <div class="absolute top-3 left-3 flex flex-col gap-1.5">
+                                    {% if f.discount_percent > 0 %}
+                                        <span class="px-2 py-0.5 rounded-md bg-rose-500 text-white font-black text-[11px] shadow">
+                                            -{{ f.discount_percent }}%
+                                        </span>
+                                    {% endif %}
+                                    <span class="px-2 py-0.5 rounded-md bg-slate-900/80 backdrop-blur text-slate-300 font-semibold text-[10px] border border-slate-700">
+                                        {{ f.material }}
+                                    </span>
+                                </div>
+
+                                <a href="/tryon?frame_id={{ f.id }}" class="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-lg transition flex items-center gap-1.5 opacity-90 group-hover:opacity-100">
+                                    <i class="fa-solid fa-camera"></i> Thử AR
+                                </a>
+                            </div>
+
+                            <!-- Product Info -->
+                            <div class="p-5 flex-1 flex flex-col justify-between space-y-3">
+                                <div>
+                                    <div class="text-[10px] text-amber-400 font-bold uppercase tracking-wider">{{ f.brand }}</div>
+                                    <a href="/products/{{ f.id }}" class="font-bold text-white group-hover:text-amber-400 transition text-base block mt-0.5">
+                                        {{ f.name }}
+                                    </a>
+                                    <div class="text-xs text-slate-400 mt-1">Dáng: {{ f.shape }} • {{ f.gender }} • Size {{ f.eye_size }}-{{ f.bridge_size }}-{{ f.temple_size }}mm</div>
+                                </div>
+
+                                <div class="pt-3 border-t border-slate-800 flex items-center justify-between">
+                                    <div>
+                                        <div class="text-lg font-black text-amber-400">{{ "{:,.0f}".format(f.price) }}đ</div>
+                                        {% if f.original_price %}
+                                            <div class="text-xs text-slate-400 line-through">{{ "{:,.0f}".format(f.original_price) }}đ</div>
+                                        {% endif %}
+                                    </div>
+                                    <a href="/products/{{ f.id }}" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-amber-500 hover:text-slate-950 transition">
+                                        Xem & Đặt tròng
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-12 text-center space-y-3">
+                    <div class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 text-2xl mx-auto">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </div>
+                    <h3 class="font-bold text-white text-base">Không tìm thấy mẫu gọng kính phù hợp</h3>
+                    <p class="text-xs text-slate-400 max-w-sm mx-auto">Vui lòng thử thay đổi bộ lọc hoặc xóa bớt tiêu chí tìm kiếm.</p>
+                    <a href="/products" class="inline-block px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs">Xóa toàn bộ bộ lọc</a>
+                </div>
+            {% endif %}
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

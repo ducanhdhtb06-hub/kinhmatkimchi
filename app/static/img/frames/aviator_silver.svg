@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280" width="800" height="280">
+  <defs>
+    <linearGradient id="silverGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="40%" stop-color="#94a3b8" />
+      <stop offset="80%" stop-color="#cbd5e1" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+    <filter id="metalShadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <!-- Double Top Bar -->
+  <path d="M 180 50 L 620 50" fill="none" stroke="url(#silverGradient)" stroke-width="8" stroke-linecap="round"/>
+  
+  <!-- Left Teardrop Rim -->
+  <path d="M 110 60 C 230 45, 330 60, 320 120 C 310 180, 240 230, 190 225 C 130 220, 90 170, 90 120 C 90 80, 100 65, 110 60 Z" 
+        fill="rgba(148, 163, 184, 0.15)" stroke="url(#silverGradient)" stroke-width="10" filter="url(#metalShadow)"/>
+  
+  <!-- Right Teardrop Rim -->
+  <path d="M 690 60 C 570 45, 470 60, 480 120 C 490 180, 560 230, 610 225 C 670 220, 710 170, 710 120 C 710 80, 700 65, 690 60 Z" 
+        fill="rgba(148, 163, 184, 0.15)" stroke="url(#silverGradient)" stroke-width="10" filter="url(#metalShadow)"/>
+
+  <!-- Bridge -->
+  <path d="M 320 100 Q 400 80 480 100" fill="none" stroke="url(#silverGradient)" stroke-width="10" stroke-linecap="round"/>
+  
+  <!-- Temples -->
+  <path d="M 90 80 L 20 70" fill="none" stroke="url(#silverGradient)" stroke-width="9" stroke-linecap="round"/>
+  <path d="M 710 80 L 780 70" fill="none" stroke="url(#silverGradient)" stroke-width="9" stroke-linecap="round"/>
+</svg>

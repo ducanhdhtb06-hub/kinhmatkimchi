@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="min-h-[75vh] flex items-center justify-center py-10 px-4 sm:px-6" x-data="{ tab: '{{ initial_tab or 'login' }}' }">
+    <div class="max-w-md w-full space-y-6 bg-slate-900/90 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden">
+        
+        <!-- Glow accents -->
+        <div class="absolute -top-20 -right-20 w-40 h-40 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="absolute -bottom-20 -left-20 w-40 h-40 bg-teal-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <!-- Header -->
+        <div class="text-center space-y-1.5">
+            {% if next_url and 'admin' in next_url %}
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-300 text-slate-950 flex items-center justify-center text-2xl font-black mx-auto shadow-xl shadow-amber-500/25">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h2 class="text-2xl font-black text-amber-400 tracking-tight">Cổng Quản Trị Hệ Thống</h2>
+                <p class="text-xs text-slate-300">Vui lòng đăng nhập tài khoản <strong>Quản Trị Viên (ducanh2006)</strong></p>
+            {% else %}
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-slate-950 flex items-center justify-center text-xl font-black mx-auto shadow-lg shadow-amber-500/20">
+                    <i class="fa-solid fa-glasses"></i>
+                </div>
+                <h2 class="text-2xl font-black text-white tracking-tight">Kính Mắt Kim Chi</h2>
+                <p class="text-xs text-slate-400">Vui lòng đăng nhập tài khoản để trải nghiệm toàn bộ tiện ích & mua sắm</p>
+            {% endif %}
+        </div>
+
+        <!-- Tab Switcher -->
+        <div class="grid grid-cols-2 p-1 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-bold">
+            <button type="button" @click="tab = 'login'" 
+                    :class="tab === 'login' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'" 
+                    class="py-2.5 rounded-xl transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-right-to-bracket"></i> Đăng Nhập
+            </button>
+            <button type="button" @click="tab = 'register'" 
+                    :class="tab === 'register' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'" 
+                    class="py-2.5 rounded-xl transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-user-plus"></i> Đăng Ký
+            </button>
+        </div>
+
+        <!-- Error & Success Messages -->
+        {% if error_message %}
+            <div class="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-2.5">
+                <i class="fa-solid fa-circle-exclamation text-base flex-shrink-0"></i>
+                <span>{{ error_message }}</span>
+            </div>
+        {% endif %}
+
+        {% if success_message %}
+            <div class="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2.5">
+                <i class="fa-solid fa-circle-check text-base flex-shrink-0"></i>
+                <span>{{ success_message }}</span>
+            </div>
+        {% endif %}
+
+        <!-- TAB 1: LOGIN FORM -->
+        <div x-show="tab === 'login'" class="space-y-4 text-xs" x-data="{ loginIdent: '', loginPass: '' }">
+            <form action="/login" method="POST" class="space-y-4">
+                <input type="hidden" name="next_url" value="{{ next_url or '/' }}">
+
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1.5">Email hoặc Số điện thoại / Tên tài khoản</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                            <i class="fa-solid fa-user"></i>
+                        </span>
+                        <input type="text" name="identifier" x-model="loginIdent" required placeholder="admin hoặc email@example.com..." 
+                               class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="font-semibold text-slate-300">Mật khẩu</label>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                            <i class="fa-solid fa-lock"></i>
+                        </span>
+                        <input type="password" name="password" x-model="loginPass" required placeholder="••••••••" 
+                               class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-3 text-sm text-white focus:outline-none focus:border-amber-400 transition">
+                    </div>
+                </div>
+
+                <!-- Quick 1-Click Demo Fill Buttons -->
+                <div class="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2">
+                    <p class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-bolt text-amber-400"></i> Điền nhanh tài khoản mẫu:
+                    </p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" 
+                                @click="loginIdent = 'ducanh2006'; loginPass = 'ducanh2006@'" 
+                                class="py-2 px-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[11px] font-bold transition flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-crown text-amber-400"></i> Admin (Quản trị)
+                        </button>
+                        <button type="button" 
+                                @click="loginIdent = 'khachhang@gmail.com'; loginPass = '123456'" 
+                                class="py-2 px-2.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-300 text-[11px] font-bold transition flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-user-check text-teal-400"></i> Khách Hàng
+                        </button>
+                    </div>
+                </div>
+
+                <div class="pt-1">
+                    <button type="submit" 
+                            class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/25 transition transform active:scale-98 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                        <span>Đăng Nhập Ngay</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- TAB 2: REGISTER FORM -->
+        <div x-show="tab === 'register'" class="space-y-4 text-xs" style="display: none;">
+            <form action="/register" method="POST" class="space-y-3.5">
+                <input type="hidden" name="next_url" value="{{ next_url or '/' }}">
+
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Họ và tên của bạn *</label>
+                    <input type="text" name="full_name" required placeholder="Ví dụ: Nguyễn Văn A" 
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Email đăng ký *</label>
+                    <input type="email" name="email" required placeholder="your.email@gmail.com" 
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Số điện thoại liên hệ *</label>
+                    <input type="text" name="phone" required placeholder="0988..." 
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Mật khẩu bảo mật (Tối thiểu 6 ký tự) *</label>
+                    <input type="password" name="password" required placeholder="••••••••" 
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400">
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" 
+                            class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/25 transition transform active:scale-98 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-user-check"></i>
+                        <span>Tạo Tài Khoản Thành Viên</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

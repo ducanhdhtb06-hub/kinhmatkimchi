@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6 text-center py-6">
+
+    <!-- Success Icon & Header -->
+    <div class="bg-slate-900/90 rounded-3xl border border-slate-800 p-8 shadow-2xl space-y-5">
+        <div class="w-20 h-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 text-emerald-400 text-3xl flex items-center justify-center mx-auto shadow-inner">
+            <i class="fa-solid fa-check"></i>
+        </div>
+
+        <div>
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Đặt hàng thành công!</span>
+            <h1 class="text-2xl sm:text-3xl font-black text-white mt-1">Cảm Ơn Bạn Đã Mua Kính Tại Kính Mắt Kim Chi</h1>
+            <p class="text-xs text-slate-400 mt-2">
+                Mã đơn hàng của bạn là: <strong class="text-amber-400 font-extrabold text-sm">{{ order.order_code }}</strong>
+            </p>
+        </div>
+
+        <!-- Order Summary Card -->
+        <div class="bg-slate-950 rounded-2xl p-5 border border-slate-800 text-left text-xs space-y-3">
+            <div class="flex justify-between pb-2 border-b border-slate-800">
+                <span class="text-slate-400">Khách hàng:</span>
+                <strong class="text-white">{{ order.customer_name }} ({{ order.phone }})</strong>
+            </div>
+            <div class="flex justify-between pb-2 border-b border-slate-800">
+                <span class="text-slate-400">Địa chỉ giao:</span>
+                <strong class="text-slate-200 text-right">{{ order.shipping_address }}</strong>
+            </div>
+            <div class="flex justify-between pb-2 border-b border-slate-800">
+                <span class="text-slate-400">Phương thức:</span>
+                <strong class="text-amber-400">{{ order.payment_method }} ({{ order.payment_status }})</strong>
+            </div>
+            <div class="flex justify-between text-sm pt-1">
+                <span class="font-bold text-white">Tổng thanh toán:</span>
+                <strong class="font-black text-amber-400 text-base">{{ "{:,.0f}".format(order.total_amount) }}đ</strong>
+            </div>
+        </div>
+
+        <!-- Process Timeline -->
+        <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-left text-xs space-y-2">
+            <div class="font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left text-amber-400"></i> Quy trình gia công & giao hàng:
+            </div>
+            <ol class="space-y-1.5 text-slate-400 text-[11px] list-decimal list-inside leading-relaxed">
+                <li>Chuyên viên quang học gọi điện xác nhận đơn và thông số độ mắt trong 15 phút.</li>
+                <li>Tiến hành mài lắp tròng chính hãng bằng máy tự động CNC độ chính xác 100%.</li>
+                <li>Kiểm tra quang học (Lensmeter test) & Đóng gói hộp da bảo vệ cao cấp.</li>
+                <li>Giao tận tay bạn trong 1 - 2 ngày (Được kiểm tra và đeo thử trước khi thanh toán).</li>
+            </ol>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <a href="/orders/track" class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 transition">
+                Tra Cứu Tiến Độ Đơn
+            </a>
+            <a href="/" class="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition">
+                Quay Lại Trang Chủ
+            </a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

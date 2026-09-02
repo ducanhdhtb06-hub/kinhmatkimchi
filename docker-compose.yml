@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: kinhmat_kimchi_app
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./eyewear.db:/app/eyewear.db
+      - ./app/static/uploads:/app/app/static/uploads
+    environment:
+      - PYTHONUNBUFFERED=1

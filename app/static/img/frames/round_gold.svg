@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280" width="800" height="280">
+  <defs>
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="35%" stop-color="#eab308" />
+      <stop offset="70%" stop-color="#ca8a04" />
+      <stop offset="100%" stop-color="#a16207" />
+    </linearGradient>
+    <filter id="goldGlow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <!-- Left Round Rim -->
+  <circle cx="210" cy="135" r="100" fill="rgba(254, 240, 138, 0.06)" stroke="url(#goldGradient)" stroke-width="12" filter="url(#goldGlow)"/>
+  
+  <!-- Right Round Rim -->
+  <circle cx="590" cy="135" r="100" fill="rgba(254, 240, 138, 0.06)" stroke="url(#goldGradient)" stroke-width="12" filter="url(#goldGlow)"/>
+  
+  <!-- Curved Bridge -->
+  <path d="M 310 120 Q 400 90 490 120" fill="none" stroke="url(#goldGradient)" stroke-width="10" stroke-linecap="round"/>
+  
+  <!-- Nose Pads -->
+  <ellipse cx="325" cy="150" rx="6" ry="12" fill="#f8fafc" stroke="url(#goldGradient)" stroke-width="2"/>
+  <ellipse cx="475" cy="150" rx="6" ry="12" fill="#f8fafc" stroke="url(#goldGradient)" stroke-width="2"/>
+  
+  <!-- Left Temple -->
+  <path d="M 110 135 L 20 125" fill="none" stroke="url(#goldGradient)" stroke-width="10" stroke-linecap="round"/>
+  
+  <!-- Right Temple -->
+  <path d="M 690 135 L 780 125" fill="none" stroke="url(#goldGradient)" stroke-width="10" stroke-linecap="round"/>
+  
+  <!-- Subtle Reflections -->
+  <path d="M 150 75 A 85 85 0 0 1 270 75" stroke="rgba(255, 255, 255, 0.6)" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M 530 75 A 85 85 0 0 1 650 75" stroke="rgba(255, 255, 255, 0.6)" stroke-width="4" stroke-linecap="round" fill="none"/>
+</svg>

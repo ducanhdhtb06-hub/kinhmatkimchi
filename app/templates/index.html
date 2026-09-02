@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-12 md:space-y-16">
+
+    <!-- 1. HERO BANNER -->
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950/40 border border-slate-800 p-8 sm:p-12 shadow-2xl">
+        <div class="absolute -right-16 -top-16 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center relative z-10">
+            <div class="space-y-5">
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                    Công nghệ Computer Vision 2026
+                </div>
+                <h1 class="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+                    Chọn Kính Hợp Dáng Mặt.<br>
+                    <span class="bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 bg-clip-text text-transparent">Thử Kính Ảo AR Tức Thì.</span>
+                </h1>
+                <p class="text-sm sm:text-base text-slate-300 max-w-lg leading-relaxed">
+                    Trải nghiệm mua kính online chuẩn xác nhất: Nhận diện 468 điểm mốc khuôn mặt, ướm thử kính thời gian thực 60 FPS và đo khoảng cách đồng tử (PD) chuẩn quang học.
+                </p>
+                <div class="flex flex-wrap items-center gap-3 pt-2">
+                    <a href="/tryon" class="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-extrabold text-sm shadow-xl shadow-amber-500/25 transition transform hover:-translate-y-0.5 flex items-center gap-2">
+                        <i class="fa-solid fa-camera"></i>
+                        <span>Bật Camera Thử Kính Ngay</span>
+                    </a>
+                    <a href="/prescription-scan" class="px-5 py-3.5 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold text-sm transition flex items-center gap-2">
+                        <i class="fa-solid fa-file-medical text-amber-400"></i>
+                        <span>Quét Đơn Kính AI OCR</span>
+                    </a>
+                    <a href="/products" class="px-5 py-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700 font-bold text-sm transition">
+                        Xem Tất Cả Gọng
+                    </a>
+                </div>
+            </div>
+
+            <!-- Hero Graphic / Interactive Visual -->
+            <div class="relative flex items-center justify-center">
+                <div class="w-full max-w-md bg-slate-950/80 rounded-2xl border border-slate-800 p-6 shadow-2xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span>
+                            <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                            <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+                            <span class="text-xs font-bold text-slate-300 ml-2">AI Face Mesh Live</span>
+                        </div>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">60 FPS</span>
+                    </div>
+                    <div class="relative aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-800 flex items-center justify-center">
+                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80" alt="Model" class="w-full h-full object-cover opacity-85">
+                        <img src="/static/img/frames/square_black.svg" alt="AR Glasses" class="absolute w-48 drop-shadow-2xl animate-pulse">
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center text-[11px]">
+                        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                            <div class="text-slate-400">Dáng mặt</div>
+                            <div class="font-bold text-amber-400 mt-0.5">Trái Xoan ⭐</div>
+                        </div>
+                        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                            <div class="text-slate-400">Khoảng cách PD</div>
+                            <div class="font-bold text-teal-400 mt-0.5">62.5 mm</div>
+                        </div>
+                        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                            <div class="text-slate-400">Size gọng</div>
+                            <div class="font-bold text-white mt-0.5">Size M (136mm)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. AI FACE SHAPE SELECTOR BAR (Tư vấn nhanh) -->
+    <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> Tìm Gọng Kính Phù Hợp Dáng Khuôn Mặt
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">Chọn dáng khuôn mặt của bạn để xem ngay các mẫu kính tôn dáng nhất</p>
+            </div>
+            <a href="/tryon" class="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1">
+                Hoặc quét khuôn mặt tự động bằng Camera <i class="fa-solid fa-arrow-right text-[10px]"></i>
+            </a>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+            <a href="/products?face_shape=Tròn" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-amber-500/50 hover:bg-slate-800/60 transition group">
+                <div class="text-2xl mb-1">🟡</div>
+                <div class="text-xs font-bold text-white group-hover:text-amber-400 transition">Mặt Tròn</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Hợp gọng Vuông, Chữ nhật</div>
+            </a>
+            <a href="/products?face_shape=Vuông" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-amber-500/50 hover:bg-slate-800/60 transition group">
+                <div class="text-2xl mb-1">🔲</div>
+                <div class="text-xs font-bold text-white group-hover:text-amber-400 transition">Mặt Vuông</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Hợp gọng Tròn, Oval, Aviator</div>
+            </a>
+            <a href="/products?face_shape=Trái xoan" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-amber-500/50 hover:bg-slate-800/60 transition group">
+                <div class="text-2xl mb-1">🥚</div>
+                <div class="text-xs font-bold text-white group-hover:text-amber-400 transition">Mặt Trái Xoan</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Tỷ lệ vàng - Hợp mọi gọng</div>
+            </a>
+            <a href="/products?face_shape=Dài" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-amber-500/50 hover:bg-slate-800/60 transition group">
+                <div class="text-2xl mb-1">📏</div>
+                <div class="text-xs font-bold text-white group-hover:text-amber-400 transition">Mặt Dài</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Hợp gọng bản to, Aviator</div>
+            </a>
+            <a href="/products?face_shape=Kim cương" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-amber-500/50 hover:bg-slate-800/60 transition group">
+                <div class="text-2xl mb-1">💎</div>
+                <div class="text-xs font-bold text-white group-hover:text-amber-400 transition">Mặt Kim Cương</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Hợp gọng Mắt mèo, Browline</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- 3. FEATURED PRODUCTS GRID -->
+    <div>
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h2 class="text-xl sm:text-2xl font-extrabold text-white">Gọng Kính Bán Chạy & Nổi Bật</h2>
+                <p class="text-xs text-slate-400 mt-0.5">Chất liệu Titanium, Acetate cao cấp hỗ trợ thử kính ảo AR</p>
+            </div>
+            <a href="/products" class="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1">
+                Xem tất cả <i class="fa-solid fa-chevron-right text-[10px]"></i>
+            </a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for f in featured_frames %}
+                <div class="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden hover:border-slate-700 transition shadow-xl flex flex-col group">
+                    <!-- Image Box -->
+                    <div class="relative aspect-[4/3] bg-slate-950 overflow-hidden">
+                        <img src="{{ f.image_url }}" alt="{{ f.name }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                        
+                        <!-- Badges -->
+                        <div class="absolute top-3 left-3 flex flex-col gap-1.5">
+                            {% if f.discount_percent > 0 %}
+                                <span class="px-2 py-0.5 rounded-md bg-rose-500 text-white font-black text-[11px] shadow">
+                                    -{{ f.discount_percent }}%
+                                </span>
+                            {% endif %}
+                            <span class="px-2 py-0.5 rounded-md bg-slate-900/80 backdrop-blur text-slate-300 font-semibold text-[10px] border border-slate-700">
+                                {{ f.material }}
+                            </span>
+                        </div>
+
+                        <!-- Quick Try-On Floating Button -->
+                        <a href="/tryon?frame_id={{ f.id }}" class="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-lg transition flex items-center gap-1.5 opacity-90 group-hover:opacity-100">
+                            <i class="fa-solid fa-camera"></i> Thử AR
+                        </a>
+                    </div>
+
+                    <!-- Details -->
+                    <div class="p-5 flex-1 flex flex-col justify-between space-y-4">
+                        <div>
+                            <div class="text-[11px] text-amber-400 font-bold uppercase tracking-wider">{{ f.brand }}</div>
+                            <a href="/products/{{ f.id }}" class="font-bold text-white group-hover:text-amber-400 transition text-base block mt-0.5">
+                                {{ f.name }}
+                            </a>
+                            <div class="text-xs text-slate-400 mt-1">Dáng: {{ f.shape }} • {{ f.gender }} • Size {{ f.eye_size }}-{{ f.bridge_size }}-{{ f.temple_size }}</div>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-800 flex items-center justify-between">
+                            <div>
+                                <div class="text-lg font-black text-amber-400">{{ "{:,.0f}".format(f.price) }}đ</div>
+                                {% if f.original_price %}
+                                    <div class="text-xs text-slate-400 line-through">{{ "{:,.0f}".format(f.original_price) }}đ</div>
+                                {% endif %}
+                            </div>
+                            <a href="/products/{{ f.id }}" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-amber-500 hover:text-slate-950 transition">
+                                Chi tiết & Đặt tròng
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 4. LENS TECHNOLOGY GUIDE (Cắt tròng kính online) -->
+    <div class="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 rounded-3xl border border-slate-800 p-8 shadow-2xl space-y-6">
+        <div class="text-center max-w-2xl mx-auto space-y-2">
+            <h2 class="text-2xl sm:text-3xl font-black text-white">Bảng Báo Giá & Công Nghệ Tròng Kính</h2>
+            <p class="text-xs sm:text-sm text-slate-400">
+                Gia công mài lắp tròng kính chuẩn xác theo số độ cận/loạn của bạn từ các hãng tròng kính hàng đầu thế giới (Essilor Pháp, Chemi Hàn Quốc).
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-4">
+            <div class="bg-slate-950/80 rounded-2xl border border-slate-800 p-5 space-y-3 relative hover:border-amber-500/40 transition">
+                <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center text-lg font-bold">
+                    💻
+                </div>
+                <h3 class="font-bold text-white text-base">Tròng Chống Ánh Sáng Xanh</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    Lọc tia ánh sáng xanh tím có hại từ màn hình máy tính và điện thoại. Giảm mỏi mắt, khô mắt và hạn chế tăng độ cận.
+                </p>
+                <div class="text-sm font-black text-amber-400 pt-2 border-t border-slate-800">
+                    Từ 350.000đ / cặp
+                </div>
+            </div>
+
+            <div class="bg-slate-950/80 rounded-2xl border border-slate-800 p-5 space-y-3 relative hover:border-amber-500/40 transition">
+                <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-lg font-bold">
+                    ☀️
+                </div>
+                <h3 class="font-bold text-white text-base">Tròng Đổi Màu (Transitions)</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    Kính 2 trong 1: Trong suốt khi ở trong nhà, tự động chuyển màu râm mát khi tiếp xúc ánh nắng mặt trời, bảo vệ mắt khỏi tia UV400.
+                </p>
+                <div class="text-sm font-black text-amber-400 pt-2 border-t border-slate-800">
+                    Từ 950.000đ / cặp
+                </div>
+            </div>
+
+            <div class="bg-slate-950/80 rounded-2xl border border-slate-800 p-5 space-y-3 relative hover:border-amber-500/40 transition">
+                <div class="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center text-lg font-bold">
+                    💎
+                </div>
+                <h3 class="font-bold text-white text-base">Tròng Siêu Mỏng 1.67 / 1.74</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    Chiết suất cao dành riêng cho người cận nặng (từ 3.00 đến 10.00 Diop). Tròng mỏng nhẹ hơn 40%, mép kính không bị lồi và thẩm mỹ cao.
+                </p>
+                <div class="text-sm font-black text-amber-400 pt-2 border-t border-slate-800">
+                    Từ 1.450.000đ / cặp
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

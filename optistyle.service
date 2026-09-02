@@ -1,0 +1,17 @@
+[Unit]
+Description=OptiStyle Pro - Eyewear E-commerce & Optical AI Computer Vision Platform
+After=network.target
+
+[Service]
+Type=simple
+User=anh
+WorkingDirectory=/home/anh/PycharmProjects/PythonProject
+ExecStart=/home/anh/PycharmProjects/PythonProject/.venv/bin/python3 scripts/keep_alive.py
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/anh/PycharmProjects/PythonProject/logs/optistyle.log
+StandardError=append:/home/anh/PycharmProjects/PythonProject/logs/optistyle.error.log
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

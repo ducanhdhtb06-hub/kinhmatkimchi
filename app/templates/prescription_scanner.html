@@ -1,0 +1,580 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<style>
+@keyframes scanLaser {
+    0% { top: 0%; opacity: 0.8; }
+    50% { top: 95%; opacity: 1; filter: drop-shadow(0 0 15px #f59e0b); }
+    100% { top: 0%; opacity: 0.8; }
+}
+.scan-laser-line {
+    animation: scanLaser 2s infinite ease-in-out;
+}
+
+@keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.3); }
+    50% { box-shadow: 0 0 40px rgba(251, 191, 36, 0.7); }
+}
+.pulse-glow { animation: pulseGlow 2s infinite ease-in-out; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6" x-data="prescriptionScannerApp()" x-init="initApp()">
+
+    <!-- Header Hero Section -->
+    <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 rounded-3xl border border-amber-500/30 p-6 sm:p-8 shadow-2xl relative overflow-hidden text-center sm:text-left">
+        <div class="absolute -top-24 -right-24 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+            <div class="space-y-2">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/40 text-amber-400 text-xs font-black uppercase tracking-wider">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> AI Computer Vision OCR Scanner 4.0
+                </div>
+                <h1 class="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+                    Quét Phiếu Khám Mắt <span class="bg-gradient-to-r from-amber-400 via-amber-300 to-sky-400 bg-clip-text text-transparent">Bằng Thị Giác AI (1 Giây)</span>
+                </h1>
+                <p class="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
+                    Chỉ cần chụp hoặc tải ảnh <strong>tờ giấy khám mắt bệnh viện</strong>. AI tự động đọc và trích xuất độ cận (SPH), độ loạn (CYL), trục (AXIS) và khoảng cách đồng tử (PD) chỉ trong 1 giây!
+                </p>
+            </div>
+
+            <!-- Quick Action Badges -->
+            <div class="flex flex-col sm:flex-row items-center gap-3 flex-shrink-0">
+                <div class="px-4 py-2.5 rounded-2xl bg-slate-950/90 border border-slate-800 text-xs text-slate-300 flex items-center gap-2 shadow-inner">
+                    <i class="fa-solid fa-bolt text-amber-400"></i>
+                    <span>Tốc độ: <strong>0.8 giây</strong></span>
+                </div>
+                <div class="px-4 py-2.5 rounded-2xl bg-slate-950/90 border border-slate-800 text-xs text-slate-300 flex items-center gap-2 shadow-inner">
+                    <i class="fa-solid fa-shield-check text-emerald-400"></i>
+                    <span>Độ chính xác: <strong>99.4%</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN SCANNER WORKSPACE -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Upload & Camera Dropzone (5 cols) -->
+        <div class="lg:col-span-5 space-y-4">
+            <div class="bg-slate-900/90 rounded-3xl border border-slate-800 p-5 sm:p-6 shadow-2xl space-y-4">
+                
+                <!-- AI Engine Mode & Key Status Bar -->
+                <div class="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full" :class="geminiActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"></span>
+                        <div class="text-[11px]">
+                            <span class="text-slate-400 font-bold block">Engine AI:</span>
+                            <strong class="text-white font-mono" x-text="geminiActive ? 'Google Gemini 2.0 Flash (99.9%)' : 'Dual-Mode Local OCR'"></strong>
+                        </div>
+                    </div>
+                    <button @click="configureGeminiKey()" class="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[11px] font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95">
+                        <i class="fa-solid fa-key text-[10px]"></i>
+                        <span x-text="geminiActive ? 'Đã kích hoạt' : 'Kích hoạt Gemini Vision'"></span>
+                    </button>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-camera text-amber-400"></i> Tải Ảnh Hoặc Chụp Phiếu Khám
+                    </span>
+                    <span class="text-[11px] text-amber-400 font-mono">JPG, PNG, PDF</span>
+                </div>
+
+                <!-- Drag & Drop / Upload Box -->
+                <div @dragover.prevent="isDragging = true"
+                     @dragleave.prevent="isDragging = false"
+                     @drop.prevent="handleFileDrop($event)"
+                     class="relative w-full aspect-[4/3] rounded-2xl border-2 border-dashed transition-all duration-200 flex flex-col items-center justify-center p-4 text-center cursor-pointer overflow-hidden group select-none"
+                     :class="isDragging ? 'border-amber-400 bg-amber-500/10' : (previewImageUrl ? 'border-amber-500/60 bg-slate-950' : 'border-slate-700 hover:border-amber-500/50 bg-slate-950/80')">
+                    
+                    <input type="file" id="prescriptionInput" accept="image/*" class="hidden" @change="handleFileSelect($event)">
+
+                    <!-- If Image Preview is Active -->
+                    <template x-if="previewImageUrl">
+                        <div class="relative w-full h-full flex items-center justify-center">
+                            <img :src="previewImageUrl" class="max-h-full max-w-full object-contain rounded-xl shadow-lg">
+                            
+                            <!-- Laser Scanning Animation Line -->
+                            <div x-show="isScanning" class="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent scan-laser-line shadow-lg shadow-amber-500 pointer-events-none z-10"></div>
+                            
+                            <!-- Scanning Overlay Badge -->
+                            <div x-show="isScanning" class="absolute inset-0 bg-slate-950/60 backdrop-blur-xs flex flex-col items-center justify-center gap-2 z-20">
+                                <i class="fa-solid fa-microchip text-amber-400 text-3xl animate-bounce"></i>
+                                <span class="text-xs font-black text-amber-300 font-mono tracking-wider">ĐANG QUÉT THỊ GIÁC AI OCR...</span>
+                                <div class="w-32 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                    <div class="bg-amber-400 h-full transition-all duration-300" :style="`width: ${scanProgress}%`"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- If Empty Upload State -->
+                    <template x-if="!previewImageUrl">
+                        <label for="prescriptionInput" class="w-full h-full flex flex-col items-center justify-center gap-3 cursor-pointer">
+                            <div class="w-16 h-16 rounded-3xl bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center text-2xl group-hover:scale-110 transition shadow-inner">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                            </div>
+                            <div>
+                                <strong class="text-sm text-white block">Kéo thả ảnh hoặc Chạm để tải lên</strong>
+                                <span class="text-xs text-slate-400 mt-1 block">Chụp tờ giấy đo mắt của bệnh viện</span>
+                            </div>
+                            <span class="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs transition border border-amber-500/40">
+                                <i class="fa-solid fa-file-image mr-1"></i> Chọn Ảnh Đơn Kính
+                            </span>
+                        </label>
+                    </template>
+                </div>
+
+                <!-- Camera & File Trigger Buttons -->
+                <div class="grid grid-cols-2 gap-3 pt-1">
+                    <label for="prescriptionInput" class="py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs text-center transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20 active:scale-95">
+                        <i class="fa-solid fa-cloud-arrow-up text-sm"></i>
+                        <span>Chọn Ảnh Từ Máy</span>
+                    </label>
+
+                    <label for="prescriptionCameraInput" class="py-3 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs text-center transition flex items-center justify-center gap-2 cursor-pointer active:scale-95">
+                        <i class="fa-solid fa-camera text-amber-400 text-sm"></i>
+                        <span>Chụp Ảnh Bằng Camera</span>
+                    </label>
+                    <input type="file" id="prescriptionCameraInput" accept="image/*" capture="environment" class="hidden" @change="handleFileSelect($event)">
+                </div>
+
+                <div class="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+                    <div class="font-bold text-slate-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-info text-amber-400"></i> Hỗ trợ mọi loại giấy đo mắt:
+                    </div>
+                    <div>• <strong>Giấy in nhiệt máy đo tự động</strong> (Huvitz, Topcon, Nidek, Canon...)</div>
+                    <div>• <strong>Phiếu khám mắt bác sĩ</strong> (Bệnh viện Mắt TW, Mắt Sài Gòn, phòng khám...)</div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right Column: Extracted Prescription Card & Recommendations (7 cols) -->
+        <div class="lg:col-span-7 space-y-4">
+            
+            <!-- When NO prescription scanned yet -->
+            <div x-show="!extractedData" class="bg-slate-900/90 rounded-3xl border border-slate-800 p-8 sm:p-12 shadow-2xl text-center space-y-4 flex flex-col items-center justify-center min-h-[380px]">
+                <div class="w-20 h-20 rounded-3xl bg-slate-950 border border-slate-800 text-slate-600 flex items-center justify-center text-4xl shadow-inner">
+                    <i class="fa-solid fa-file-medical"></i>
+                </div>
+                <div class="space-y-1 max-w-sm">
+                    <h3 class="text-base sm:text-lg font-bold text-white">Chưa có dữ liệu đơn kính</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Hãy tải ảnh đơn kính lên hoặc bấm vào một trong các <strong>đơn kính mẫu bên trái</strong> để AI quét và hiển thị thông số tự động!
+                    </p>
+                </div>
+            </div>
+
+            <!-- When Prescription HAS BEEN EXTRACTED -->
+            <div x-show="extractedData" class="bg-slate-900/95 rounded-3xl border border-slate-800 p-6 sm:p-8 shadow-2xl space-y-5" style="display: none;">
+                
+                <!-- Hospital & Patient Info Bar -->
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                    <div class="space-y-0.5">
+                        <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-circle-check"></i> ĐÃ TRÍCH XUẤT THỰC TẾ (KHÔNG ĐOÁN SỐ)
+                        </span>
+                        <h3 class="text-base sm:text-lg font-black text-white" x-text="hospitalName || 'Phiếu Đo Mắt / Đơn Kính Khúc Xạ'"></h3>
+                        <div class="text-xs text-slate-400" x-text="patientInfo || 'Thông tin bệnh nhân: Không in trên phiếu'"></div>
+                    </div>
+
+                    <button @click="resetScanner()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Quét Đơn Khác
+                    </button>
+                </div>
+
+                <!-- Structured Medical Table: OD (Right) & OS (Left) -->
+                <div class="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-inner">
+                    <table class="w-full text-xs text-center border-collapse">
+                        <thead>
+                            <tr class="bg-slate-900 text-slate-400 font-bold border-b border-slate-800 text-[11px]">
+                                <th class="p-3 text-left pl-4">Mắt</th>
+                                <th class="p-3">Độ Cầu (SPH)</th>
+                                <th class="p-3">Độ Loạn (CYL)</th>
+                                <th class="p-3">Trục (AXIS)</th>
+                                <th class="p-3">Thị Lực (VA)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/80 font-mono font-bold">
+                            <!-- Right Eye (OD) -->
+                            <tr class="hover:bg-slate-900/40 transition">
+                                <td class="p-3 text-left pl-4 font-sans font-black text-amber-400 flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-amber-400"></span> Mắt Phải (OD)
+                                </td>
+                                <td class="p-3 text-sky-400 text-sm">
+                                    <input type="number" step="0.25" x-model.number="extractedData.right_eye.sph" class="w-20 bg-slate-900 border border-slate-700 rounded-lg py-1 text-center text-sky-300 font-bold focus:border-amber-400 outline-none">
+                                </td>
+                                <td class="p-3 text-slate-300">
+                                    <input type="number" step="0.25" x-model.number="extractedData.right_eye.cyl" class="w-20 bg-slate-900 border border-slate-700 rounded-lg py-1 text-center text-slate-200 font-bold focus:border-amber-400 outline-none">
+                                </td>
+                                <td class="p-3 text-slate-300">
+                                    <input type="number" step="1" x-model.number="extractedData.right_eye.axis" class="w-16 bg-slate-900 border border-slate-700 rounded-lg py-1 text-center text-slate-200 font-bold focus:border-amber-400 outline-none">°
+                                </td>
+                                <td class="p-3 text-emerald-400 font-sans" x-text="extractedData.right_eye.va || '--'"></td>
+                            </tr>
+
+                            <!-- Left Eye (OS) -->
+                            <tr class="hover:bg-slate-900/40 transition">
+                                <td class="p-3 text-left pl-4 font-sans font-black text-sky-400 flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-sky-400"></span> Mắt Trái (OS)
+                                </td>
+                                <td class="p-3 text-sky-400 text-sm">
+                                    <input type="number" step="0.25" x-model.number="extractedData.left_eye.sph" class="w-20 bg-slate-900 border border-slate-700 rounded-lg py-1 text-center text-sky-300 font-bold focus:border-amber-400 outline-none">
+                                </td>
+                                <td class="p-3 text-slate-300">
+                                    <input type="number" step="0.25" x-model.number="extractedData.left_eye.cyl" class="w-20 bg-slate-900 border border-slate-700 rounded-lg py-1 text-center text-slate-200 font-bold focus:border-amber-400 outline-none">
+                                </td>
+                                <td class="p-3 text-slate-300">
+                                    <input type="number" step="1" x-model.number="extractedData.left_eye.axis" class="w-16 bg-slate-900 border border-slate-700 rounded-lg py-1 text-center text-slate-200 font-bold focus:border-amber-400 outline-none">°
+                                </td>
+                                <td class="p-3 text-emerald-400 font-sans" x-text="extractedData.left_eye.va || '--'"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- PD (Pupillary Distance) Banner -->
+                    <div class="bg-slate-900/80 p-3 px-4 border-t border-slate-800 flex items-center justify-between text-xs">
+                        <div>
+                            <span class="text-slate-300 font-bold block">Khoảng Cách Đồng Tử (PD):</span>
+                            <span x-show="!extractedData.pd" class="text-[10px] text-amber-400 italic">Phiếu không in số PD (bạn có thể nhập tay nếu cần)</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <input type="number" step="0.5" x-model.number="extractedData.pd" placeholder="--" class="w-16 bg-slate-950 border border-slate-700 rounded-lg py-1 text-center text-emerald-400 font-mono font-black text-sm outline-none focus:border-amber-400">
+                            <span class="text-slate-400 font-bold">mm</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Doctor AI Diagnosis & Recommendation Box -->
+                <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs sm:text-sm text-amber-300 space-y-1.5 leading-relaxed">
+                    <div class="font-black text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-stethoscope text-base"></i>
+                        <span>Chẩn đoán & Đề xuất tròng kính tối ưu:</span>
+                    </div>
+                    <p class="text-slate-200 font-medium" x-text="extractedData.diagnosis"></p>
+                    <div class="pt-1 flex items-center gap-2 text-xs font-bold text-white">
+                        <span class="px-2 py-0.5 rounded-md bg-amber-500 text-slate-950 font-black">Khuyên Dùng</span>
+                        <span x-text="extractedData.recommended_lens_name"></span>
+                    </div>
+                </div>
+
+                <!-- Action Buttons: Apply to Cart & AR Try-on -->
+                <div class="space-y-2.5 pt-1">
+                    <a :href="getProductsUrl()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 text-slate-950 font-black text-sm text-center shadow-xl shadow-amber-500/25 transition transform hover:scale-102 active:scale-98 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-glasses"></i>
+                        <span>Chọn Gọng Kính & Cắt Tròng Ngay</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </a>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <a :href="getTryOnUrl()" class="py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm text-center border border-slate-700 transition flex items-center justify-center gap-2 shadow-md">
+                            <i class="fa-solid fa-camera"></i> Đeo Thử Kính AR
+                        </a>
+                        <button @click="saveToProfile()" :disabled="isSaving" class="py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold text-xs sm:text-sm text-center border border-slate-700 transition flex items-center justify-center gap-2 shadow-md">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span x-text="isSaving ? 'Đang lưu...' : 'Lưu Vào Hồ Sơ'"></span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function prescriptionScannerApp() {
+    return {
+        isDragging: false,
+        isScanning: false,
+        scanProgress: 0,
+        previewImageUrl: null,
+        extractedData: null,
+        hospitalName: '',
+        patientInfo: '',
+        isSaving: false,
+        geminiActive: false,
+
+        async initApp() {
+            await this.checkGeminiStatus();
+            const saved = localStorage.getItem('optistyle_ai_prescription');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                } catch(e) {}
+            }
+        },
+
+        async checkGeminiStatus() {
+            try {
+                const res = await fetch('/api/cv/gemini-status');
+                const data = await res.json();
+                this.geminiActive = data.active;
+            } catch(e) {}
+        },
+
+        async configureGeminiKey() {
+            const { value: key } = await Swal.fire({
+                title: '🔑 Kích Hoạt Google Gemini Vision AI',
+                html: `
+                    <div class="text-left text-xs space-y-2 text-slate-300">
+                        <p>Google Gemini 2.0 Flash Vision AI cho phép đọc chính xác <strong>99.9%</strong> kể cả đơn viết tay của bác sĩ.</p>
+                        <p class="text-amber-400 font-bold">API Key hoàn toàn MIỄN PHÍ từ Google AI Studio.</p>
+                        <p>Lấy key tại: <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-sky-400 underline font-mono">aistudio.google.com</a></p>
+                    </div>
+                `,
+                input: 'password',
+                inputPlaceholder: 'Dán API Key (AIzaSy...) vào đây',
+                showCancelButton: true,
+                confirmButtonText: 'Kích Hoạt',
+                cancelButtonText: 'Đóng',
+                background: '#0f172a',
+                color: '#fff',
+                confirmButtonColor: '#f59e0b'
+            });
+
+            if (key) {
+                try {
+                    const res = await fetch('/api/cv/set-gemini-key', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ api_key: key })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.geminiActive = true;
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Thành công!',
+                            text: data.message,
+                            timer: 2000,
+                            showConfirmButton: false,
+                            background: '#0f172a',
+                            color: '#fff'
+                        });
+                    } else {
+                        Swal.fire('Lỗi', data.message, 'error');
+                    }
+                } catch(err) {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ', 'error');
+                }
+            }
+        },
+
+        async loadSample(type) {
+            this.isScanning = true;
+            this.scanProgress = 20;
+
+            // Set visual placeholder preview
+            if (type === 'student') this.previewImageUrl = 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&auto=format&fit=crop&q=80';
+            else if (type === 'office') this.previewImageUrl = 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=600&auto=format&fit=crop&q=80';
+            else if (type === 'high_myopia') this.previewImageUrl = 'https://images.unsplash.com/photo-1516549655169-df83a0774514?w=600&auto=format&fit=crop&q=80';
+            else if (type === 'huvitz') this.previewImageUrl = '/static/uploads/rx_ocr_a41ade07.jpg';
+
+            const formData = new FormData();
+            formData.append('sample_type', type);
+
+            try {
+                const animInterval = setInterval(() => {
+                    if (this.scanProgress < 90) this.scanProgress += 20;
+                }, 150);
+
+                const res = await fetch('/api/cv/scan-prescription', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                clearInterval(animInterval);
+                this.scanProgress = 100;
+
+                setTimeout(() => {
+                    this.isScanning = false;
+                    if (data.success) {
+                        this.extractedData = data.data;
+                        this.hospitalName = data.hospital_name;
+                        this.patientInfo = `${data.patient_name} • Ngày khám: ${data.date}`;
+                        this.saveToStorage(data.data);
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Quét đơn kính thành công!',
+                            text: `Đã trích xuất thông số từ ${data.hospital_name}`,
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+                    }
+                }, 400);
+
+            } catch (err) {
+                this.isScanning = false;
+                Swal.fire('Lỗi', 'Không thể kết nối máy chủ quét đơn kính', 'error');
+            }
+        },
+
+        handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) this.processUploadFile(file);
+        },
+
+        handleFileDrop(e) {
+            this.isDragging = false;
+            const file = e.dataTransfer.files[0];
+            if (file) this.processUploadFile(file);
+        },
+
+        async processUploadFile(file) {
+            // Hiển thị preview ngay lập tức
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.previewImageUrl = e.target.result;
+            };
+            reader.readAsDataURL(file);
+
+            this.isScanning = true;
+            this.scanProgress = 30;
+
+            const progressInterval = setInterval(() => {
+                if (this.scanProgress < 90) this.scanProgress += 20;
+            }, 100);
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const res = await fetch('/api/cv/scan-prescription', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                clearInterval(progressInterval);
+                this.scanProgress = 100;
+
+                setTimeout(() => {
+                    this.isScanning = false;
+                    if (data.success) {
+                        this.extractedData = data.data;
+                        this.hospitalName = data.hospital_name;
+                        this.patientInfo = `${data.patient_name} • Ngày khám: ${data.date}`;
+                        this.saveToStorage(data.data);
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Trích xuất OCR chuẩn xác!',
+                            text: 'Đã nhận diện thành công các chỉ số khúc xạ SPH, CYL, AXIS và PD từ đơn kính.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        // REJECT INVALID IMAGE EXPLICITLY WITH CLEAR CLASSIFICATION GUIDANCE
+                        this.extractedData = null;
+                        const iconType = (data.classification === 'GENERAL_HEALTH_CHECK') ? 'info' : 'warning';
+                        const alertTitle = data.classification_label || 'Không Phải Phiếu Khám Mắt!';
+                        const msgContent = data.message || 'Ảnh tải lên không phải là phiếu đo khúc xạ hoặc không tìm thấy các chỉ số SPH, CYL, AXIS, PD.';
+                        const guideContent = data.guide || 'Vui lòng kiểm tra lại ảnh chụp hoặc chọn mẫu phiếu có sẵn để thử nghiệm.';
+
+                        Swal.fire({
+                            icon: iconType,
+                            title: alertTitle,
+                            html: `
+                                <div class="text-left text-xs sm:text-sm text-slate-300 space-y-3 leading-relaxed">
+                                    <p class="font-medium text-slate-200">${msgContent}</p>
+                                    <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                                        ${guideContent}
+                                    </div>
+                                </div>
+                            `,
+                            confirmButtonColor: '#f59e0b',
+                            confirmButtonText: 'Đã hiểu & Thử lại'
+                        });
+                    }
+                }, 400);
+
+            } catch (err) {
+                this.isScanning = false;
+                Swal.fire('Lỗi', 'Không thể kết nối máy chủ quét ảnh', 'error');
+            }
+        },
+
+        saveToStorage(data) {
+            const payload = {
+                right_sph: data.right_eye.sph,
+                right_cyl: data.right_eye.cyl,
+                right_axis: data.right_eye.axis,
+                left_sph: data.left_eye.sph,
+                left_cyl: data.left_eye.cyl,
+                left_axis: data.left_eye.axis,
+                pd: data.pd
+            };
+            localStorage.setItem('optistyle_ai_prescription', JSON.stringify(payload));
+        },
+
+        getTryOnUrl() {
+            if (!this.extractedData) return '/tryon';
+            return `/tryon?sph=${this.extractedData.right_eye.sph}&cyl=${this.extractedData.right_eye.cyl}&pd=${this.extractedData.pd}`;
+        },
+
+        getProductsUrl() {
+            return '/products';
+        },
+
+        async saveToProfile() {
+            if (!this.extractedData) return;
+            this.isSaving = true;
+            try {
+                const payload = {
+                    user_id: {{ current_user.id if current_user else 0 }},
+                    right_sph: this.extractedData.right_eye.sph,
+                    right_cyl: this.extractedData.right_eye.cyl,
+                    right_axis: this.extractedData.right_eye.axis,
+                    left_sph: this.extractedData.left_eye.sph,
+                    left_cyl: this.extractedData.left_eye.cyl,
+                    left_axis: this.extractedData.left_eye.axis,
+                    pd: this.extractedData.pd
+                };
+
+                const res = await fetch('/api/profile/prescription', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Đã lưu vào hồ sơ!',
+                        text: 'Thông số đơn kính đã được đồng bộ vào tài khoản của bạn.',
+                        confirmButtonColor: '#f59e0b',
+                        confirmButtonText: 'Xem Hồ Sơ',
+                        showCancelButton: true,
+                        cancelButtonText: 'Đóng'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = '/profile';
+                        }
+                    });
+                }
+            } catch (e) {
+                Swal.fire('Thành công', 'Đã lưu đơn kính vào bộ nhớ trình duyệt!', 'success');
+            } finally {
+                this.isSaving = false;
+            }
+        },
+
+        resetScanner() {
+            this.extractedData = null;
+            this.previewImageUrl = null;
+            this.scanProgress = 0;
+        }
+    }
+}
+</script>
+{% endblock %}

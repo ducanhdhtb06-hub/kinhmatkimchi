@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+*.db-journal
+scratch/
+cloudflared
+.bin/
+models/
+*.safetensors
+*.bin
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+data/
+*.db
+.gemini_api_key
