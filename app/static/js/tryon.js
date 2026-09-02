@@ -1,6 +1,6 @@
 /**
- * OptiStyle Pro - 60 FPS Universal AR Virtual Try-On Engine
- * Multi-layer client-side tracking: MediaPipe Face Mesh + Geometrical Optical Calibrator
+ * OptiStyle Pro - Calibrated Optical Computer Vision AR Engine
+ * High-Precision Metric Distance Normalization & Interactive 50-60cm Calibration Oval
  */
 
 class OptiTryOnEngine {
@@ -18,6 +18,7 @@ class OptiTryOnEngine {
             onNoFaceDetected: null,
             onFaceLost: null,
             onStatusChanged: null,
+            onDistanceChanged: null,
             ...options
         };
 
@@ -26,12 +27,9 @@ class OptiTryOnEngine {
         this.isGlassesLoaded = false;
         
         this.isRunning = false;
+        this.isPostingFrame = false;
         this.currentSource = 'idle'; // 'camera', 'image', 'idle'
         this.staticImage = null;
-        
-        // Manual user adjustments
-        this.manualScale = 1.0;
-        this.manualOffsetY = 0;
         
         // Active Face Position State (Interpolated)
         this.targetBox = null;
@@ -39,20 +37,13 @@ class OptiTryOnEngine {
         this.currentLandmarks = [];
         this.hasValidFace = false;
         this.lastTrackTime = 0;
-        
         this.currentDistanceData = {
             distance_cm: 55,
             status: 'OPTIMAL',
             advice: 'Khoảng cách chuẩn 55 cm ✅'
         };
 
-        // MediaPipe FaceMesh Instance
-        this.faceMesh = null;
-        this.camera = null;
-        this.isMediaPipeReady = false;
-
         this.loadGlasses(this.options.glassesOverlayUrl);
-        this.initMediaPipe();
     }
 
     notifyStatus(statusText, type = 'info') {
@@ -64,7 +55,6 @@ class OptiTryOnEngine {
     loadGlasses(url) {
         this.isGlassesLoaded = false;
         this.options.glassesOverlayUrl = url;
-        this.glassesImage = new Image();
         this.glassesImage.crossOrigin = "anonymous";
         this.glassesImage.onload = () => {
             this.isGlassesLoaded = true;
@@ -73,29 +63,6 @@ class OptiTryOnEngine {
             }
         };
         this.glassesImage.src = url;
-    }
-
-    // Initialize Client-Side Google MediaPipe Face Mesh
-    async initMediaPipe() {
-        if (typeof FaceMesh !== 'undefined') {
-            try {
-                this.faceMesh = new FaceMesh({
-                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-                });
-
-                this.faceMesh.setOptions({
-                    maxNumFaces: 1,
-                    refineLandmarks: true,
-                    minDetectionConfidence: 0.5,
-                    minTrackingConfidence: 0.5
-                });
-
-                this.faceMesh.onResults((results) => this.onMediaPipeResults(results));
-                this.isMediaPipeReady = true;
-            } catch (err) {
-                console.warn("MediaPipe init fallback:", err);
-            }
-        }
     }
 
     async startCamera() {
@@ -130,51 +97,10 @@ class OptiTryOnEngine {
             this.currentSource = 'camera';
             this.notifyStatus('Camera trực tiếp (60 FPS)', 'active');
             
-            // Set initial centered anchor immediately so glasses appear with 0ms delay
-            const w = this.canvas.width;
-            const h = this.canvas.height;
-            this.targetBox = {
-                center_x: w * 0.5,
-                center_y: h * 0.42,
-                width: w * 0.48 * this.manualScale,
-                height: (w * 0.48 * this.manualScale) / 2.85,
-                angle: 0
-            };
-            this.hasValidFace = true;
-            this.lastTrackTime = Date.now();
-
-            if (this.options.onFaceAnalyzed) {
-                this.options.onFaceAnalyzed({
-                    has_face: true,
-                    face_shape: 'Trái xoan',
-                    advice: 'Phù hợp đa dạng gọng kính',
-                    pd_mm: 63,
-                    face_width_mm: 138,
-                    estimated_distance_cm: 55,
-                    distance_status: 'OPTIMAL',
-                    distance_advice: 'Khoảng cách chuẩn 55 cm ✅',
-                    glasses_position: this.targetBox
-                });
-            }
-
             // Continuous 60 FPS Render Loop
             this.renderLiveCameraLoop();
-
-            // Run Client-Side Face Mesh Tracker
-            if (this.faceMesh && typeof Camera !== 'undefined') {
-                this.camera = new Camera(this.video, {
-                    onFrame: async () => {
-                        if (this.isRunning && this.currentSource === 'camera') {
-                            try {
-                                await this.faceMesh.send({ image: this.video });
-                            } catch (e) {}
-                        }
-                    },
-                    width: 640,
-                    height: 480
-                });
-                this.camera.start();
-            }
+            // Continuous Face Tracking Dispatcher
+            this.runLiveFaceTracker();
 
             return true;
         } catch (err) {
@@ -183,103 +109,7 @@ class OptiTryOnEngine {
         }
     }
 
-    // Process Client-Side MediaPipe Face Mesh Results (0ms Latency)
-    onMediaPipeResults(results) {
-        if (!this.isRunning || this.currentSource !== 'camera') return;
-
-        if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-            const landmarks = results.multiFaceLandmarks[0];
-            const w = this.canvas.width;
-            const h = this.canvas.height;
-
-            const noseBridge = landmarks[168] || landmarks[6];
-            const leftTemple = landmarks[234] || landmarks[127];
-            const rightTemple = landmarks[454] || landmarks[356];
-            const leftEye = landmarks[33];
-            const rightEye = landmarks[263];
-            const leftIris = landmarks[468] || landmarks[33];
-            const rightIris = landmarks[473] || landmarks[263];
-            const forehead = landmarks[10];
-            const chin = landmarks[152];
-
-            const templeDist = Math.hypot((rightTemple.x - leftTemple.x) * w, (rightTemple.y - leftTemple.y) * h);
-            const eyeDistPx = Math.hypot((rightIris.x - leftIris.x) * w, (rightIris.y - leftIris.y) * h);
-            const angle = Math.atan2((rightEye.y - leftEye.y) * h, (rightEye.x - leftEye.x) * w);
-
-            const focalLength = w * 0.88;
-            const estimatedDistanceCm = Math.round((focalLength * 6.3) / (eyeDistPx || 1) * 10) / 10;
-            const estimatedPdMm = Math.round((eyeDistPx / (templeDist || 1)) * 140);
-            const clampedPd = Math.max(56, Math.min(72, estimatedPdMm || 63));
-
-            const faceHeight = Math.hypot((chin.x - forehead.x) * w, (chin.y - forehead.y) * h);
-            const faceRatio = faceHeight / (templeDist || 1);
-            let faceShape = 'Trái xoan';
-            let advice = 'Phù hợp hầu hết các loại gọng kính (Vuông, Tròn, Aviator)';
-
-            if (faceRatio < 1.25) {
-                faceShape = 'Mặt tròn';
-                advice = 'Nên chọn gọng Vuông / Chữ nhật / Browline để tạo góc cạnh thanh thoát';
-            } else if (faceRatio > 1.45) {
-                faceShape = 'Mặt dài';
-                advice = 'Nên chọn gọng Tròn / Oval / Bản lớn để cân đối chiều dài gương mặt';
-            } else if (templeDist > faceHeight * 0.85) {
-                faceShape = 'Mặt vuông';
-                advice = 'Nên chọn gọng Tròn / Oval / Kim loại mỏng để làm mềm đường viền quai hàm';
-            }
-
-            let distStatus = 'OPTIMAL';
-            let distAdvice = `Khoảng cách chuẩn ${estimatedDistanceCm} cm ✅`;
-            if (estimatedDistanceCm < 45) {
-                distStatus = 'TOO_CLOSE';
-                distAdvice = `Quá gần (${estimatedDistanceCm} cm) - Vui lòng lùi lại`;
-            } else if (estimatedDistanceCm > 68) {
-                distStatus = 'TOO_FAR';
-                distAdvice = `Quá xa (${estimatedDistanceCm} cm) - Vui lòng lại gần`;
-            }
-
-            this.currentDistanceData = {
-                distance_cm: estimatedDistanceCm,
-                status: distStatus,
-                advice: distAdvice
-            };
-
-            const glassesWidth = templeDist * 1.15 * this.manualScale;
-            const glassesHeight = glassesWidth / 2.85;
-
-            this.targetBox = {
-                center_x: noseBridge.x * w,
-                center_y: (noseBridge.y * h) + this.manualOffsetY,
-                width: glassesWidth,
-                height: glassesHeight,
-                angle: angle
-            };
-
-            this.currentLandmarks = [
-                { x: leftIris.x * w, y: leftIris.y * h },
-                { x: rightIris.x * w, y: rightIris.y * h },
-                { x: noseBridge.x * w, y: noseBridge.y * h }
-            ];
-
-            this.hasValidFace = true;
-            this.lastTrackTime = Date.now();
-
-            if (this.options.onFaceAnalyzed) {
-                this.options.onFaceAnalyzed({
-                    has_face: true,
-                    face_shape: faceShape,
-                    advice: advice,
-                    pd_mm: clampedPd,
-                    face_width_mm: 140,
-                    estimated_distance_cm: estimatedDistanceCm,
-                    distance_status: distStatus,
-                    distance_advice: distAdvice,
-                    glasses_position: this.targetBox
-                });
-            }
-        }
-    }
-
-    // Continuous 60 FPS Render Loop
+    // 1. Live 60 FPS Canvas Renderer with Calibration Oval & Smooth Box Interpolation
     renderLiveCameraLoop() {
         if (!this.isRunning || this.currentSource !== 'camera') return;
 
@@ -305,7 +135,7 @@ class OptiTryOnEngine {
             if (!this.currentBox) {
                 this.currentBox = { ...this.targetBox };
             } else {
-                const factor = 0.45;
+                const factor = 0.35;
                 this.currentBox.center_x += (this.targetBox.center_x - this.currentBox.center_x) * factor;
                 this.currentBox.center_y += (this.targetBox.center_y - this.currentBox.center_y) * factor;
                 this.currentBox.width += (this.targetBox.width - this.currentBox.width) * factor;
@@ -315,7 +145,7 @@ class OptiTryOnEngine {
 
             // Draw Eye Landmark Dots
             if (this.options.showLandmarks && this.currentLandmarks.length > 0) {
-                this.ctx.fillStyle = "rgba(245, 158, 11, 0.9)";
+                this.ctx.fillStyle = "rgba(245, 158, 11, 0.85)";
                 for (const pt of this.currentLandmarks) {
                     this.ctx.beginPath();
                     this.ctx.arc(pt.x, pt.y, 4, 0, 2 * Math.PI);
@@ -341,7 +171,7 @@ class OptiTryOnEngine {
 
         this.ctx.restore();
 
-        // 4. Draw Interactive Calibration Oval
+        // 4. Draw Interactive 50-60cm Calibration Oval on top (Non-mirrored UI layer)
         if (this.options.showCalibrationGuide) {
             this.drawCalibrationOval(width, height);
         }
@@ -359,18 +189,18 @@ class OptiTryOnEngine {
         this.ctx.save();
         this.ctx.lineWidth = 2.5;
 
-        let strokeColor = "rgba(245, 158, 11, 0.45)"; // default amber
+        let strokeColor = "rgba(245, 158, 11, 0.4)"; // default amber
         let label = "🎯 Đặt khuôn mặt vào khung chuẩn 50 - 60 cm";
 
         if (this.hasValidFace) {
             if (this.currentDistanceData.status === 'OPTIMAL') {
-                strokeColor = "rgba(16, 185, 129, 0.9)"; // Emerald Green
+                strokeColor = "rgba(16, 185, 129, 0.85)"; // Emerald Green
                 label = `✅ Khoảng cách chuẩn: ${this.currentDistanceData.distance_cm} cm (Đang đo chính xác)`;
             } else if (this.currentDistanceData.status === 'TOO_CLOSE') {
-                strokeColor = "rgba(244, 63, 94, 0.9)"; // Rose Red
+                strokeColor = "rgba(244, 63, 94, 0.85)"; // Rose Red
                 label = `⚠️ Quá gần camera (${this.currentDistanceData.distance_cm} cm) - Vui lòng lùi lại`;
             } else if (this.currentDistanceData.status === 'TOO_FAR') {
-                strokeColor = "rgba(56, 189, 248, 0.9)"; // Sky Blue
+                strokeColor = "rgba(56, 189, 248, 0.85)"; // Sky Blue
                 label = `⚠️ Quá xa camera (${this.currentDistanceData.distance_cm} cm) - Vui lòng tiến lại gần`;
             }
         }
@@ -384,7 +214,7 @@ class OptiTryOnEngine {
 
         // Guide text banner
         this.ctx.setLineDash([]);
-        this.ctx.fillStyle = "rgba(9, 13, 22, 0.88)";
+        this.ctx.fillStyle = "rgba(9, 13, 22, 0.85)";
         this.ctx.fillRect(centerX - 170, centerY + radiusY + 12, 340, 26);
         this.ctx.strokeStyle = strokeColor;
         this.ctx.strokeRect(centerX - 170, centerY + radiusY + 12, 340, 26);
@@ -397,6 +227,75 @@ class OptiTryOnEngine {
         this.ctx.restore();
     }
 
+    // 2. High-speed Live Computer Vision Frame Tracker
+    async runLiveFaceTracker() {
+        if (!this.isRunning || this.currentSource !== 'camera') return;
+
+        if (this.video.readyState >= 2 && !this.isPostingFrame) {
+            this.isPostingFrame = true;
+            try {
+                const offscreen = document.createElement('canvas');
+                offscreen.width = 320;
+                offscreen.height = 240;
+                const offCtx = offscreen.getContext('2d');
+                offCtx.drawImage(this.video, 0, 0, 320, 240);
+                const b64 = offscreen.toDataURL('image/jpeg', 0.65);
+
+                const res = await fetch('/api/cv/track-frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_base64: b64 })
+                });
+
+                const data = await res.json();
+                if (data.has_face) {
+                    this.hasValidFace = true;
+                    this.lastTrackTime = Date.now();
+
+                    this.currentDistanceData = {
+                        distance_cm: data.estimated_distance_cm,
+                        status: data.distance_status,
+                        advice: data.distance_advice
+                    };
+
+                    const scaleX = this.canvas.width / 320;
+                    const scaleY = this.canvas.height / 240;
+
+                    this.targetBox = {
+                        center_x: data.glasses_position.center_x * scaleX,
+                        center_y: data.glasses_position.center_y * scaleY,
+                        width: data.glasses_position.width * scaleX,
+                        height: data.glasses_position.height * scaleY,
+                        angle: data.glasses_position.angle
+                    };
+
+                    this.currentLandmarks = (data.landmarks || []).map(pt => ({
+                        x: pt.x * scaleX,
+                        y: pt.y * scaleY
+                    }));
+
+                    if (this.options.onFaceAnalyzed) {
+                        this.options.onFaceAnalyzed(data);
+                    }
+                } else {
+                    if (Date.now() - this.lastTrackTime > 600) {
+                        this.hasValidFace = false;
+                        this.targetBox = null;
+                        this.currentBox = null;
+                        if (this.options.onFaceLost) {
+                            this.options.onFaceLost();
+                        }
+                    }
+                }
+            } catch (err) {}
+            this.isPostingFrame = false;
+        }
+
+        if (this.isRunning) {
+            setTimeout(() => this.runLiveFaceTracker(), 120);
+        }
+    }
+
     stopCamera() {
         this.isRunning = false;
         this.currentSource = 'idle';
@@ -404,9 +303,6 @@ class OptiTryOnEngine {
         this.targetBox = null;
         this.currentBox = null;
 
-        if (this.camera) {
-            try { this.camera.stop(); } catch(e){}
-        }
         if (this.stream) {
             this.stream.getTracks().forEach(track => track.stop());
             this.stream = null;
@@ -418,8 +314,8 @@ class OptiTryOnEngine {
         this.notifyStatus('Camera đã tắt', 'idle');
     }
 
-    // Static Image Processing (Models & Uploads) with Universal Coordinate Normalization
-    async processStaticImage(imgElement, presetData = null) {
+    // Static Image Processing
+    async processStaticImage(imgElement, serverVerifiedData = null) {
         this.stopCamera();
         this.staticImage = imgElement;
         this.currentSource = 'image';
@@ -431,49 +327,22 @@ class OptiTryOnEngine {
         this.canvas.width = w;
         this.canvas.height = h;
 
-        this.hasValidFace = true;
-        
-        let cx = w * 0.5;
-        let cy = h * 0.38;
-        let gw = w * 0.46;
-        let angle = 0;
-
-        if (presetData) {
-            const box = presetData.glasses_position || presetData;
-            if (box.center_x !== undefined) {
-                cx = (box.center_x <= 1.0) ? (box.center_x * w) : (box.center_x * (w / 800.0));
+        if (serverVerifiedData) {
+            if (serverVerifiedData.has_face) {
+                this.hasValidFace = true;
+                this.targetBox = serverVerifiedData.glasses_position;
+                this.currentLandmarks = serverVerifiedData.landmarks || [];
+                if (this.options.onFaceAnalyzed) {
+                    this.options.onFaceAnalyzed(serverVerifiedData);
+                }
+            } else {
+                this.hasValidFace = false;
+                if (this.options.onNoFaceDetected) {
+                    this.options.onNoFaceDetected(serverVerifiedData.message || 'Không phát hiện khuôn mặt');
+                }
             }
-            if (box.center_y !== undefined) {
-                cy = (box.center_y <= 1.0) ? (box.center_y * h) : (box.center_y * (h / 800.0));
-            }
-            if (box.width !== undefined) {
-                gw = (box.width <= 1.0) ? (box.width * w) : (box.width * (w / 800.0));
-            }
-            if (box.angle !== undefined) {
-                angle = box.angle;
-            }
-        }
-
-        this.targetBox = {
-            center_x: cx,
-            center_y: cy + this.manualOffsetY,
-            width: gw * this.manualScale,
-            height: (gw * this.manualScale) / 2.85,
-            angle: angle
-        };
-
-        if (this.options.onFaceAnalyzed) {
-            this.options.onFaceAnalyzed({
-                has_face: true,
-                face_shape: (presetData && presetData.face_shape) ? presetData.face_shape : 'Trái xoan',
-                advice: (presetData && presetData.advice) ? presetData.advice : 'Phù hợp đa dạng gọng kính',
-                pd_mm: (presetData && presetData.estimated_pd) ? presetData.estimated_pd : 63,
-                face_width_mm: (presetData && presetData.real_face_width_mm) ? presetData.real_face_width_mm : 138,
-                estimated_distance_cm: 55,
-                distance_status: 'OPTIMAL',
-                distance_advice: 'Khoảng cách chuẩn 55 cm ✅',
-                glasses_position: this.targetBox
-            });
+        } else {
+            this.hasValidFace = false;
         }
 
         this.renderStaticFrame();
@@ -489,6 +358,7 @@ class OptiTryOnEngine {
         this.ctx.clearRect(0, 0, width, height);
         this.ctx.drawImage(this.staticImage, 0, 0, width, height);
 
+        // ONLY draw glasses if an actual verified face exists!
         if (this.hasValidFace && this.targetBox && this.isGlassesLoaded) {
             const box = this.targetBox;
             this.ctx.save();
@@ -505,33 +375,5 @@ class OptiTryOnEngine {
         }
 
         this.ctx.restore();
-    }
-
-    // Adjust Scale & Position in Real Time
-    setAdjustments(scaleDelta, offsetYDelta) {
-        this.manualScale = Math.max(0.6, Math.min(1.6, this.manualScale + scaleDelta));
-        this.manualOffsetY += offsetYDelta;
-        
-        if (this.targetBox) {
-            this.targetBox.width = this.targetBox.width * (1 + scaleDelta);
-            this.targetBox.height = this.targetBox.width / 2.85;
-            this.targetBox.center_y += offsetYDelta;
-        }
-        
-        if (this.currentSource === 'image') {
-            this.renderStaticFrame();
-        }
-    }
-
-    // Capture High-Resolution Snapshot
-    takeSnapshot() {
-        try {
-            const link = document.createElement('a');
-            link.download = `optistyle_tryon_${Date.now()}.png`;
-            link.href = this.canvas.toDataURL('image/png');
-            link.click();
-        } catch (e) {
-            console.error("Snapshot error:", e);
-        }
     }
 }
