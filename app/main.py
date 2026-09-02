@@ -9,14 +9,15 @@ if project_root not in sys.path:
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 
 try:
-    from app.database import engine, Base, init_db_if_needed
+    from app.database import engine, Base, init_db_if_needed, get_db
     from app.routes import api, web
 except (ImportError, ModuleNotFoundError):
-    from database import engine, Base, init_db_if_needed
+    from database import engine, Base, init_db_if_needed, get_db
     from routes import api, web
 
 # Tạo instance FastAPI chuẩn cho Vercel ASGI Handler
@@ -28,6 +29,20 @@ app = FastAPI(
 
 # Khởi tạo DB khi khởi động module
 init_db_if_needed()
+
+# HTTP Middleware để tự động chuẩn hóa đường dẫn Serverless Vercel
+@app.middleware("http")
+async def normalize_vercel_path(request: Request, call_next):
+    path = request.scope.get("path", "/")
+    for prefix in ["/api/index.py", "/api/index"]:
+        if path.startswith(prefix):
+            new_path = path[len(prefix):]
+            if not new_path.startswith("/"):
+                new_path = "/" + new_path
+            request.scope["path"] = new_path
+            request.scope["raw_path"] = new_path.encode("utf-8")
+            break
+    return await call_next(request)
 
 # Static Files Directory
 static_dir = os.path.join(current_dir, "static")
@@ -43,6 +58,15 @@ if os.path.exists(static_dir):
 # Mount Routers
 app.include_router(api.router)
 app.include_router(web.router)
+
+# Direct fallback aliases for Vercel root
+@app.get("/api/index.py")
+def vercel_root_alias1(request: Request, db: Session = Depends(get_db)):
+    return web.page_homepage(request, db)
+
+@app.get("/api/index")
+def vercel_root_alias2(request: Request, db: Session = Depends(get_db)):
+    return web.page_homepage(request, db)
 
 if __name__ == "__main__":
     import uvicorn
