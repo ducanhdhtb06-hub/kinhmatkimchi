@@ -166,17 +166,23 @@ class OpticalEvaluationHarness:
             return self._call_real_deepseek(prompt)
 
     def _call_real_gemini(self, prompt: str) -> Dict[str, Any]:
-        """Gửi prompt trực tiếp tới Google Generative Language REST API với cơ chế tự động Fallback model."""
+        """Gửi prompt trực tiếp tới Google Generative Language REST API với tốc độ siêu tốc."""
         start_time = time.time()
-        fallback_models = [self.model, "gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest"]
+        fallback_models = [self.model, "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.7-flash"]
         
         last_error = None
         for m_name in dict.fromkeys(fallback_models):  # giữ thứ tự và loại bỏ trùng
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_name}:generateContent?key={self.api_key}"
+            
+            # Cấu hình siêu tốc (tắt thinking budget nếu model hỗ trợ)
+            gen_config = {"responseMimeType": "application/json", "temperature": 0.0}
+            if "3.5" in m_name or "3.7" in m_name or "3.8" in m_name:
+                gen_config["thinkingConfig"] = {"thinkingBudget": 0}
+
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
                 "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-                "generationConfig": {"responseMimeType": "application/json", "temperature": 0.0}
+                "generationConfig": gen_config
             }
 
             req = urllib.request.Request(
@@ -187,7 +193,7 @@ class OpticalEvaluationHarness:
             )
 
             try:
-                with urllib.request.urlopen(req, timeout=30) as resp:
+                with urllib.request.urlopen(req, timeout=15) as resp:
                     raw_res = json.loads(resp.read().decode("utf-8"))
                     latency = round(time.time() - start_time, 2)
                     candidate = raw_res.get("candidates", [{}])[0]
@@ -203,7 +209,7 @@ class OpticalEvaluationHarness:
                     }
             except Exception as e:
                 last_error = e
-                time.sleep(0.5)
+                time.sleep(0.3)
                 continue
 
         return {
