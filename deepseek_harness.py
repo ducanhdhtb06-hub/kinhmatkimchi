@@ -2,18 +2,16 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================================
-OptiStyle Pro - DeepSeek Optical & Medical Evaluation Harness (deepseek_harness.py)
+OptiStyle Pro - Multimodal AI & Optical Evaluation Harness (deepseek_harness.py)
 ================================================================================
-File kiểm thử & đánh giá độc lập (Standalone Harness) tích hợp DeepSeek (V3, R1, Vision)
-để đánh giá tự động:
-  1. Trích xuất thông số khúc xạ nhãn khoa (SPH, CYL, AXIS, PD).
-  2. Đánh giá chất lượng tư vấn RAG Bác Sĩ Nhãn Khoa & Đề xuất tròng kính.
-  3. Kiểm định chính sách Zero-Hallucination (Chống bịa số độ).
+Công cụ kiểm thử & đánh giá độc lập (Evaluation Harness) tích hợp chính thức:
+  1. Google Gemini API (gemini-2.0-flash, gemini-1.5-flash, gemini-1.5-pro)
+  2. DeepSeek API (deepseek-chat V3, deepseek-reasoner R1)
 
-Tương thích:
-  - DeepSeek API (https://api.deepseek.com)
-  - Chế độ Offline / Mock Mode khi chưa có API Key
-  - Độc lập hoàn toàn, không phụ thuộc cứng vào server đang chạy.
+Đánh giá tự động:
+  - Trích xuất thông số khúc xạ nhãn khoa (SPH, CYL, AXIS, PD).
+  - Kiểm định chính sách Zero-Hallucination (Chống bịa số độ trên hóa đơn, giấy khám tổng quát).
+  - So sánh độ chính xác và độ trễ (latency) giữa các mô hình AI thật.
 ================================================================================
 """
 
@@ -29,10 +27,6 @@ try:
     import urllib.error
 except ImportError:
     pass
-
-# ============================ CẤU HÌNH MẶC ĐỊNH ============================
-DEFAULT_DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
-DEFAULT_MODEL = "deepseek-chat"  # hoặc deepseek-reasoner (R1) / deepseek-vision
 
 
 # ============================ MẪU DỮ LIỆU ĐO KHÚC XẠ (BENCHMARK DATASET) ============================
@@ -129,34 +123,103 @@ BENCHMARK_PRESCRIPTION_TESTS = [
     }
 ]
 
+SYSTEM_PROMPT = (
+    "Bạn là Hệ Thống Phân Tích & Kiểm Duyệt Khúc Xạ Mắt Chuyên Nghiệp. "
+    "Nhiệm vụ của bạn là kiểm tra văn bản đầu vào và trích xuất thông số y tế thành JSON:\n"
+    "1. Nếu văn bản KHÔNG PHẢI là đơn kính thuốc hoặc phiếu đo mắt (ví dụ: hóa đơn mua sắm, giấy khám sức khỏe tổng quát, thực đơn...):\n"
+    "   => Trả về JSON: {\"is_prescription\": false, \"message\": \"Không phải đơn kính mắt.\"}\n"
+    "   => TUYỆT ĐỐI KHÔNG BỊA SỐ ĐỘ.\n"
+    "2. Nếu ĐÚNG là đơn kính / phiếu đo khúc xạ:\n"
+    "   => Trả về JSON chứa: is_prescription (true), right_sph (float), right_cyl (float), right_axis (int), left_sph (float), left_cyl (float), left_axis (int), pd (float), recommended_index (float).\n"
+    "Luôn trả về duy nhất một khối JSON hợp lệ."
+)
+
 
 # ============================ HARNESS ENGINE ============================
-class DeepSeekOpticalHarness:
-    """Harness chuyên dụng để gọi và đánh giá DeepSeek trên bài toán Khúc Xạ Mắt."""
+class OpticalEvaluationHarness:
+    """Harness chuyên dụng hỗ trợ đa mô hình AI: DeepSeek và Google Gemini."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL):
-        self.api_key = api_key or os.environ.get("DEEPSEEK_API_KEY", "")
-        self.model = model
-        self.api_url = DEFAULT_DEEPSEEK_API_URL
+    def __init__(self, provider: str = "deepseek", model: Optional[str] = None, api_key: Optional[str] = None):
+        self.provider = provider.lower()
+        self.api_key = api_key or os.environ.get(
+            "GEMINI_API_KEY" if self.provider == "gemini" else "DEEPSEEK_API_KEY", ""
+        )
+        if not self.api_key and self.provider == "gemini":
+            self.api_key = os.environ.get("GOOGLE_API_KEY", "")
+            if not self.api_key and os.path.exists(".gemini_api_key"):
+                with open(".gemini_api_key", "r") as f:
+                    self.api_key = f.read().strip()
 
-    def call_deepseek(self, prompt: str, system_prompt: str = "") -> Dict[str, Any]:
-        """Gửi prompt tới DeepSeek API và nhận kết quả JSON."""
+        if self.provider == "gemini":
+            self.model = model or "gemini-2.0-flash"
+        else:
+            self.model = model or "deepseek-chat"
+
+    def call_ai(self, prompt: str) -> Dict[str, Any]:
+        """Điều hướng gọi API theo provider được chọn."""
         if not self.api_key:
-            # Chế độ Mock / Offline mô phỏng khi chưa có API Key
-            return self._mock_deepseek_response(prompt)
+            return self._mock_response(prompt)
 
+        if self.provider == "gemini":
+            return self._call_real_gemini(prompt)
+        else:
+            return self._call_real_deepseek(prompt)
+
+    def _call_real_gemini(self, prompt: str) -> Dict[str, Any]:
+        """Gửi prompt trực tiếp tới Google Generative Language REST API với cơ chế tự động Fallback model."""
+        start_time = time.time()
+        fallback_models = [self.model, "gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest"]
+        
+        last_error = None
+        for m_name in dict.fromkeys(fallback_models):  # giữ thứ tự và loại bỏ trùng
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_name}:generateContent?key={self.api_key}"
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+                "generationConfig": {"responseMimeType": "application/json", "temperature": 0.0}
+            }
+
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+
+            try:
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    raw_res = json.loads(resp.read().decode("utf-8"))
+                    latency = round(time.time() - start_time, 2)
+                    candidate = raw_res.get("candidates", [{}])[0]
+                    text_content = candidate.get("content", {}).get("parts", [{}])[0].get("text", "{}")
+                    parsed_json = json.loads(text_content)
+                    return {
+                        "success": True,
+                        "latency_sec": latency,
+                        "provider": f"Google Gemini ({raw_res.get('modelVersion', m_name)})",
+                        "model": m_name,
+                        "data": parsed_json,
+                        "usage": raw_res.get("usageMetadata", {})
+                    }
+            except Exception as e:
+                last_error = e
+                time.sleep(0.5)
+                continue
+
+        return {
+            "success": False,
+            "error": f"Gemini API Error: {str(last_error)}",
+            "latency_sec": round(time.time() - start_time, 2),
+            "provider": "Google Gemini"
+        }
+
+    def _call_real_deepseek(self, prompt: str) -> Dict[str, Any]:
+        """Gửi prompt tới DeepSeek API chính thức."""
+        api_url = "https://api.deepseek.com/v1/chat/completions"
         payload = {
             "model": self.model,
             "messages": [
-                {
-                    "role": "system",
-                    "content": system_prompt or (
-                        "Bạn là AI Chuyên Gia Nhãn Khoa OptiStyle Pro. "
-                        "Nhiệm vụ của bạn là trích xuất chính xác thông số đo mắt từ văn bản y tế. "
-                        "Nếu văn bản không phải là đơn kính hoặc phiếu đo mắt, hãy trả về `\"is_prescription\": false`. "
-                        "TUYỆT ĐỐI KHÔNG BỊA SỐ ĐỘ. Luôn trả về định dạng JSON hợp lệ."
-                    )
-                },
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
             ],
             "response_format": {"type": "json_object"},
@@ -164,7 +227,7 @@ class DeepSeekOpticalHarness:
         }
 
         req = urllib.request.Request(
-            self.api_url,
+            api_url,
             data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
@@ -177,45 +240,42 @@ class DeepSeekOpticalHarness:
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 raw_res = json.loads(resp.read().decode("utf-8"))
-                latency = time.time() - start_time
+                latency = round(time.time() - start_time, 2)
                 content_str = raw_res["choices"][0]["message"]["content"]
                 parsed_json = json.loads(content_str)
                 return {
                     "success": True,
-                    "latency_sec": round(latency, 2),
-                    "data": parsed_json,
-                    "raw": raw_res
+                    "latency_sec": latency,
+                    "provider": "DeepSeek (Official API)",
+                    "model": self.model,
+                    "data": parsed_json
                 }
         except Exception as e:
             return {
                 "success": False,
-                "error": str(e),
-                "latency_sec": round(time.time() - start_time, 2)
+                "error": f"DeepSeek API Error: {str(e)}",
+                "latency_sec": round(time.time() - start_time, 2),
+                "provider": "DeepSeek"
             }
 
-    def _mock_deepseek_response(self, prompt: str) -> Dict[str, Any]:
-        """Bộ giả lập quy tắc nội bộ của OptiStyle Pro (Chạy độc lập khi không có API Key)."""
+    def _mock_response(self, prompt: str) -> Dict[str, Any]:
+        """Chế độ Mock Offline mô phỏng khi chưa nhập API Key."""
         prompt_lower = prompt.lower()
-        time.sleep(0.05)  # Giả lập độ trễ mạng
+        time.sleep(0.04)
 
-        # Kiểm tra chống Hallucination
-        if "hóa đơn" in prompt_lower or "siêu thị" in prompt_lower or "huyết áp" in prompt_lower or "khám sức khỏe" in prompt_lower:
+        if any(w in prompt_lower for w in ["hóa đơn", "siêu thị", "huyết áp", "khám sức khỏe", "co.opmart"]):
             return {
                 "success": True,
-                "latency_sec": 0.05,
-                "mode": "mock_rules",
-                "data": {
-                    "is_prescription": False,
-                    "message": "Phát hiện tài liệu không phải đơn kính nhãn khoa."
-                }
+                "latency_sec": 0.04,
+                "provider": "Offline Mock Heuristics (Chưa có API Key)",
+                "data": {"is_prescription": False, "message": "Phát hiện tài liệu không phải đơn kính nhãn khoa."}
             }
 
-        # Case Cận học đường
         if "-1.75" in prompt:
             return {
                 "success": True,
-                "latency_sec": 0.05,
-                "mode": "mock_rules",
+                "latency_sec": 0.04,
+                "provider": "Offline Mock Heuristics (Chưa có API Key)",
                 "data": {
                     "is_prescription": True,
                     "right_sph": -1.75,
@@ -227,12 +287,11 @@ class DeepSeekOpticalHarness:
                 }
             }
 
-        # Case Cận loạn văn phòng
         if "-3.50" in prompt:
             return {
                 "success": True,
-                "latency_sec": 0.05,
-                "mode": "mock_rules",
+                "latency_sec": 0.04,
+                "provider": "Offline Mock Heuristics (Chưa có API Key)",
                 "data": {
                     "is_prescription": True,
                     "right_sph": -3.50,
@@ -246,12 +305,11 @@ class DeepSeekOpticalHarness:
                 }
             }
 
-        # Case Cận cao
         if "-6.50" in prompt:
             return {
                 "success": True,
-                "latency_sec": 0.05,
-                "mode": "mock_rules",
+                "latency_sec": 0.04,
+                "provider": "Offline Mock Heuristics (Chưa có API Key)",
                 "data": {
                     "is_prescription": True,
                     "right_sph": -6.50,
@@ -263,16 +321,17 @@ class DeepSeekOpticalHarness:
 
         return {
             "success": True,
-            "latency_sec": 0.05,
-            "mode": "mock_rules",
+            "latency_sec": 0.04,
+            "provider": "Offline Mock Heuristics (Chưa có API Key)",
             "data": {"is_prescription": False}
         }
 
     def run_benchmark(self) -> Dict[str, Any]:
         """Chạy toàn bộ Harness Benchmark Suite và tổng hợp điểm số."""
         print("=" * 80)
-        print("🚀 ĐANG CHẠY DEEPSEEK OPTICAL & MEDICAL EVALUATION HARNESS")
-        print(f"📌 Chế độ: {'API Trực Tiếp (' + self.model + ')' if self.api_key else 'Mock Engine (Offline/Local Rules)'}")
+        print("🚀 ĐANG CHẠY OPTICAL & MEDICAL AI EVALUATION HARNESS")
+        print(f"📌 Provider: {self.provider.upper()} | Model: {self.model}")
+        print(f"🔑 Chế độ: {'API Trực Tiếp' if self.api_key else '⚠️ Mock Engine (Offline Heuristics - Cần cung cấp API Key để gọi API thật)'}")
         print("=" * 80)
 
         total_cases = len(BENCHMARK_PRESCRIPTION_TESTS)
@@ -283,16 +342,15 @@ class DeepSeekOpticalHarness:
             print(f"\n[Test {idx:02d}/{total_cases:02d}] {test_case['id']} - {test_case['description']}")
             prompt = f"Hãy phân tích và trích xuất dữ liệu từ văn bản y tế sau:\n{test_case['input_text']}"
             
-            res = self.call_deepseek(prompt)
+            res = self.call_ai(prompt)
             if not res.get("success"):
-                print(f"  ❌ Lỗi gọi DeepSeek: {res.get('error')}")
+                print(f"  ❌ Lỗi gọi AI: {res.get('error')}")
                 results.append({"id": test_case["id"], "passed": False, "error": res.get("error")})
                 continue
 
             extracted = res.get("data", {})
             gt = test_case["ground_truth"]
 
-            # Kiểm định
             is_valid = True
             diffs = []
 
@@ -311,7 +369,7 @@ class DeepSeekOpticalHarness:
 
             if is_valid:
                 passed_cases += 1
-                print(f"  ✅ [PASS] Trích xuất chính xác 100% (Độ trễ: {res.get('latency_sec')}s)")
+                print(f"  ✅ [PASS] Trích xuất chính xác (Độ trễ: {res.get('latency_sec')}s | Engine: {res.get('provider')})")
             else:
                 print(f"  ❌ [FAIL] Sai lệch dữ liệu: {', '.join(diffs)}")
 
@@ -325,7 +383,7 @@ class DeepSeekOpticalHarness:
 
         accuracy = round((passed_cases / total_cases) * 100, 2)
         print("\n" + "=" * 80)
-        print(f"📊 KẾT QUẢ ĐÁNH GIÁ HARNESS: {passed_cases}/{total_cases} CASES ĐẠT ({accuracy}% ACCURACY)")
+        print(f"📊 KẾT QUẢ ĐÁNH GIÁ: {passed_cases}/{total_cases} CASES ĐẠT ({accuracy}% ACCURACY)")
         print("=" * 80)
 
         return {
@@ -338,13 +396,14 @@ class DeepSeekOpticalHarness:
 
 # ============================ CLI ENTRYPOINT ============================
 def main():
-    parser = argparse.ArgumentParser(description="DeepSeek Optical Evaluation Harness")
-    parser.add_argument("--api_key", type=str, default=None, help="DeepSeek API Key")
-    parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help="DeepSeek Model (deepseek-chat, deepseek-reasoner)")
+    parser = argparse.ArgumentParser(description="Multimodal AI Optical Evaluation Harness")
+    parser.add_argument("--provider", type=str, default="deepseek", choices=["deepseek", "gemini"], help="Nhà cung cấp AI (deepseek hoặc gemini)")
+    parser.add_argument("--model", type=str, default=None, help="Tên model (Ví dụ: gemini-2.0-flash, gemini-1.5-pro, deepseek-chat, deepseek-reasoner)")
+    parser.add_argument("--api_key", type=str, default=None, help="API Key của DeepSeek hoặc Google Gemini")
     parser.add_argument("--export_json", type=str, default=None, help="Xuất kết quả benchmark ra file JSON")
     args = parser.parse_args()
 
-    harness = DeepSeekOpticalHarness(api_key=args.api_key, model=args.model)
+    harness = OpticalEvaluationHarness(provider=args.provider, model=args.model, api_key=args.api_key)
     summary = harness.run_benchmark()
 
     if args.export_json:

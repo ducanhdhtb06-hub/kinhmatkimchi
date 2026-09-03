@@ -240,7 +240,7 @@ def process_prescription_with_gemini_vision(image_path: str, api_key: str) -> Op
         """
 
         raw_text = None
-        for m_name in ["gemini-3.6-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"]:
+        for m_name in ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-lite-latest", "gemini-3.1-flash-lite", "gemini-3.6-flash"]:
             try:
                 model = genai.GenerativeModel(m_name)
                 response = model.generate_content([prompt, pil_img])
